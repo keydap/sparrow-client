@@ -1,1 +1,1 @@
-This is a SCIM client
+This is a client for the Sparrow Cloud Identity Server.
