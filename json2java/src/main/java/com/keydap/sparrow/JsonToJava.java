@@ -6,11 +6,13 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Type;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Iterator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.antlr.stringtemplate.StringTemplate;
 import org.antlr.stringtemplate.StringTemplateGroup;
@@ -23,10 +25,8 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
+import com.keydap.sparrow.ResourceType.Extension;
 
 @Mojo(name = "generate", defaultPhase = LifecyclePhase.GENERATE_SOURCES)
 public class JsonToJava extends AbstractMojo {
@@ -34,10 +34,7 @@ public class JsonToJava extends AbstractMojo {
     private String generatePackage;
 
     @Parameter
-    private URL schemaBaseUrl;
-
-    @Parameter
-    private List<String> schemaFiles;
+    private String baseUrl;
 
     @Parameter(defaultValue = "${project.build.directory}")
     protected File targetDirectory;
@@ -67,22 +64,20 @@ public class JsonToJava extends AbstractMojo {
             }
         }
 
-        String schemaJson = getSchemaJson(schemaBaseUrl);
-        
         try {
-            compileAndSave(schemaJson, srcDir);
+            compileAndSave(srcDir);
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException(e);
         }
     }
 
-    private String getSchemaJson(URL url) throws MojoExecutionException {
+    private String fetch(String url) throws MojoExecutionException {
         BufferedReader br = null;
         try {
-            getLog().debug(
-                    "Fetching the contents of the resource at URL " + url);
-            br = new BufferedReader(new InputStreamReader(url.openStream()));
+            getLog().debug("Fetching data from " + url);
+            URL u = new URL(url);
+            br = new BufferedReader(new InputStreamReader(u.openStream()));
 
             String s;
 
@@ -93,8 +88,8 @@ public class JsonToJava extends AbstractMojo {
 
             return sb.toString();
         } catch (IOException e) {
-            throw new MojoExecutionException(
-                    "Failed to read schema data from the URL " + url, e);
+            throw new MojoExecutionException("Failed to read data from " + url,
+                    e);
         } finally {
             if (br != null) {
                 try {
@@ -106,37 +101,42 @@ public class JsonToJava extends AbstractMojo {
         }
     }
 
-    public void compileAndSave(String schema, File srcDir)
-            throws MojoExecutionException {
-        JsonParser parser = new JsonParser();
-        JsonObject json = (JsonObject) parser.parse(schema);
+    public void compileAndSave(File srcDir) throws MojoExecutionException {
+        Gson gson = new Gson();
 
-        JsonElement nameEl = json.get("name");
+        getLog().info("Fetching resourcetypes");
+        String rtJson = fetch(baseUrl + "/ResourceTypes");
 
-        if (nameEl == null) {
-            JsonElement scEl = json.get("schemas");
-            if ((scEl != null) && (scEl.isJsonArray())) {
-                JsonArray ja = scEl.getAsJsonArray();
-                if (ja.size() > 0) {
-                    String scName = ja.get(0).getAsString();
-                    if (scName.contains("ServiceProviderConfig")) {
-                        // no need to print a warning, just return
-                        return;
-                    }
-                }
-            }
+        Type rtt = new TypeToken<List<ResourceType>>() {
+        }.getType();
 
-            System.out.println("Ignoring " + schema
-                    + " it is not a valid SCIM resource schema");
-            return;
+        List<ResourceType> resTypes = gson.fromJson(rtJson, rtt);
+
+        getLog().info("Fetching schemas");
+        String scJson = fetch(baseUrl + "/Schemas");
+
+        Type st = new TypeToken<List<Schema>>() {
+        }.getType();
+        List<Schema> schemas = gson.fromJson(scJson, st);
+
+        Map<String, Schema> scMap = new HashMap<String, Schema>();
+
+        for (Schema s : schemas) {
+            scMap.put(s.id, s);
         }
 
-        String className = nameEl.getAsString();
+        for (ResourceType rt : resTypes) {
+            _compileAndSave(rt, scMap, srcDir);
+        }
+    }
 
-        List<String> innerClasses = new ArrayList<String>();
+    public void _compileAndSave(ResourceType rt, Map<String, Schema> schemas,
+            File srcDir) throws MojoExecutionException {
+        getLog().info("Generating model for resource type " + rt.name);
 
-        StringTemplate template = generateClass(json, innerClasses, null);
-        template.setAttribute("allInnerClasses", innerClasses);
+        String className = rt.name;
+
+        StringTemplate template = generateClass(rt, schemas);
 
         File javaFile = new File(srcDir, className + ".java");
 
@@ -161,128 +161,131 @@ public class JsonToJava extends AbstractMojo {
         }
     }
 
-    private StringTemplate generateClass(JsonObject json,
-            List<String> innerClasses, StringTemplate parent) {
+    private StringTemplate generateClass(ResourceType rt,
+            Map<String, Schema> schemas) {
         StringTemplate template = stg.getInstanceOf("resource-class");
 
-        boolean isCoreSchema = false;
+        template.setAttribute("schemaId", rt.schema);
 
-        if (json.has("id")) {
-            String schemaId = json.get("id").getAsString();
-            template.setAttribute("schemaId", schemaId);
-            if (schemaId.startsWith("urn:ietf:params:scim:schemas:core:")) {
-                isCoreSchema = true;
-            }
+        template.setAttribute("date", new Date());
 
-            template.setAttribute("date", new Date());
+        template.setAttribute("package", generatePackage);
 
-            template.setAttribute("package", generatePackage);
+        template.setAttribute("visibility", "public");
 
-            template.setAttribute("visibility", "public");
+        template.setAttribute("resourceDesc", rt.description);
 
-            String desc = json.get("description").getAsString();
-            template.setAttribute("resourceDesc", desc);
-        }
+        template.setAttribute("className", rt.name);
 
-        List<AttributeType> simpleAttributes = new ArrayList<AttributeType>();
+        List<String> innerClasses = new ArrayList<String>();
 
-        if (parent != null) {
-            template.setAttribute("static", "static");
+        Schema coreSchema = schemas.get(rt.schema);
 
-            boolean multiValued = json.get("multiValued").getAsBoolean();
-            if (multiValued) {
-                AttributeType operation = new AttributeType("operation",
-                        "String");
-
-                simpleAttributes.add(operation);
+        for (AttributeType at : coreSchema.attributes) {
+            if (!at.type.equalsIgnoreCase("complex")) {
+                prepareSimpleAttribute(at, template);
+            } else {
+                innerClasses.add(addComplexAttribute(rt.name, at));
             }
         }
 
-        String className = json.get("name").getAsString();
-        template.setAttribute("className", className);
+        List<AttributeType> allAttrs = new ArrayList<AttributeType>();
+        allAttrs.addAll(coreSchema.attributes);
+        
+        if (rt.schemaExtensions != null) {
+            // these are not real attribute's of schema but the java fields associated with
+            // the extended types
+            List<AttributeType> extensions = new ArrayList<AttributeType>();
 
-        JsonArray attributes;
-
-        if (json.has("attributes")) {
-            attributes = json.get("attributes").getAsJsonArray();
-        } else {
-            attributes = json.get("subAttributes").getAsJsonArray();
-        }
-
-        Iterator<JsonElement> itr = attributes.iterator();
-        while (itr.hasNext()) {
-            JsonObject jo = (JsonObject) itr.next();
-            String type = jo.get("type").getAsString();
-
-            String name = jo.get("name").getAsString();
-
-            boolean readOnly = false;
-
-            JsonElement jeReadOnly = jo.get("readOnly");
-            if (jeReadOnly != null) {
-                readOnly = jeReadOnly.getAsBoolean();
-            }
-
-            String javaType = "String";
-            if (type.equals("numeric")) {
-                javaType = "Number";
-            } else if (type.equals("boolean")) {
-                javaType = "boolean";
-            }
-
-            boolean multiValued = false;
-
-            if (type.equals("complex")) {
-                javaType = Character.toUpperCase(name.charAt(0))
-                        + name.substring(1);
-
-                if (javaType.endsWith("s")) {
-                    int endPos = javaType.length() - 1;
-
-                    // special case for Address'es'
-                    if (javaType.endsWith("Addresses")) {
-                        endPos -= 1;
+            for(Extension et : rt.schemaExtensions) {
+                Schema sc = schemas.get(et.schema);
+                StringTemplate extTemplate = stg.getInstanceOf("resource-class");
+                
+                String extClassName = makeClassName(sc.name);
+                extTemplate.setAttribute("visibility", "static");
+                extTemplate.setAttribute("className", extClassName);
+                
+                List<String> extInnerClasses = new ArrayList<String>();
+                
+                for (AttributeType at : sc.attributes) {
+                    if (!at.type.equalsIgnoreCase("complex")) {
+                        prepareSimpleAttribute(at, extTemplate);
+                    } else {
+                        innerClasses.add(addComplexAttribute(sc.name, at));
                     }
-
-                    javaType = javaType.substring(0, endPos);
                 }
-
-                // replace the type's name
-                jo.remove("name");
-                jo.addProperty("name", javaType);
-
-                javaType = className + "." + javaType;
-
-                multiValued = jo.get("multiValued").getAsBoolean();
-
-                if (multiValued) {
-                    javaType = "java.util.List<" + javaType + ">";
-                }
-
-                // how to add inner classes
-                StringTemplate inner = generateClass(jo, innerClasses,
-                        template);
-                innerClasses.add(inner.toString());
+                
+                extTemplate.setAttribute("allAttrs", sc.attributes);
+                extTemplate.setAttribute("allInnerClasses", extInnerClasses);
+                extTemplate.setAttribute("schemaId", sc.id);
+                
+                innerClasses.add(extTemplate.toString());
+                AttributeType extAt = new AttributeType();
+                extAt.name = makeFieldName(sc.name);
+                extAt.type = extClassName;
+                extAt.extension = true;
+                extAt.schema = sc.id;
+                extensions.add(extAt);
             }
-
-            AttributeType ad = new AttributeType(name, javaType);
-            ad.setMultiValued(multiValued);
-
-            simpleAttributes.add(ad);
+            
+            allAttrs.addAll(extensions);
         }
-
-        if (isCoreSchema) {
-            AttributeType id = new AttributeType("id", "String");
-            simpleAttributes.add(id);
-
-            AttributeType externalId = new AttributeType("externalId",
-                    "String");
-            simpleAttributes.add(externalId);
-        }
-
-        template.setAttribute("allAttrs", simpleAttributes);
+        
+        template.setAttribute("allAttrs", allAttrs);
+        template.setAttribute("allInnerClasses", innerClasses);
 
         return template;
+    }
+
+    private void prepareSimpleAttribute(AttributeType at, StringTemplate template) {
+        if (at.type.equalsIgnoreCase("dateTime")) {
+            at.type = "long";
+        } else if (at.type.equalsIgnoreCase("reference")
+                || at.type.equalsIgnoreCase("string")) {
+            at.type = "String";
+        } else if (at.type.equalsIgnoreCase("binary")) {
+            at.type = "byte[]";
+        }
+        
+        if (at.multiValued) {
+            at.type = "List<" + at.type + ">";
+        }
+    }
+
+    private String addComplexAttribute(String parentClassName, AttributeType at) {
+        StringTemplate template = stg.getInstanceOf("resource-class");
+        
+        String className = makeClassName(at.name);
+        
+        if (className.endsWith("s")) {
+            int endPos = className.length() - 1;
+            
+            // special case for Address'es'
+            if (className.endsWith("Addresses")) {
+                endPos -= 1;
+            }
+            
+            className = className.substring(0, endPos);
+        }
+        
+        
+        template.setAttribute("static", "static");
+        template.setAttribute("className", className);
+        
+        //at.type = parentClassName + "." + className;
+        at.type = className;
+        
+        if (at.multiValued) {
+            at.type = "List<" + at.type + ">";
+        }
+        
+        for(AttributeType subAt : at.subAttributes) {
+            prepareSimpleAttribute(subAt, template);
+        }
+        
+        template.setAttribute("allAttrs", at.subAttributes);
+
+        return template.toString();
     }
 
     /**
@@ -294,49 +297,30 @@ public class JsonToJava extends AbstractMojo {
     }
 
     /**
-     * @param schemaBaseUrl
+     * @param baseUrl
      *            the schemaBaseUrl to set
      */
-    public void setSchemaBaseUrl(URL schemaBaseUrl) {
-        this.schemaBaseUrl = schemaBaseUrl;
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
     }
 
-    /**
-     * @param schemaFiles
-     *            the schemaFiles to set
-     */
-    public void setSchemaFiles(List<String> schemaFiles) {
-        this.schemaFiles = schemaFiles;
+    private String makeClassName(String name) {
+        String className = Character.toUpperCase(name.charAt(0))
+                + name.substring(1);
+        return className;
     }
 
-    /**
-     * @param stg
-     *            the stg to set
-     */
-    public static void setStg(StringTemplateGroup stg) {
-        JsonToJava.stg = stg;
+    private String makeFieldName(String name) {
+        String fieldName = Character.toLowerCase(name.charAt(0))
+                + name.substring(1);
+        return fieldName;
     }
 
     public static void main(String[] args) throws Exception {
-        InputStream in = JsonToJava.class.getClassLoader()
-                .getResourceAsStream("example-user.json");
-        BufferedReader br = new BufferedReader(new InputStreamReader(in));
-
-        // BufferedReader br = new BufferedReader( new FileReader(
-        // "/Users/dbugger/projects/json-schema-escimo/common/src/main/resources/user-schema.json"
-        // ) );
-        String s;
-
-        StringBuilder sb = new StringBuilder();
-        while ((s = br.readLine()) != null) {
-            sb.append(s);
-        }
-
-        // JsonToJava.compile( sb.toString() );
-        Gson gson = new Gson();
-
-        // String json = sb.toString();
-        // User u = gson.fromJson( json, User.class );
-        // System.out.println( u );
+        JsonToJava jj = new JsonToJava();
+        jj.baseUrl = "http://localhost:9090/v2";
+        jj.generatePackage = "com";
+        jj.targetDirectory = new File("/Users/dbugger/projects/sparrow-client/json2java/target");
+        jj.execute();
     }
 }
