@@ -20,7 +20,12 @@ $visibility$ $static$ class $className$
    @Extension("$attr.schema$")
    $endif$
    private $attr.type$ $attr.name$;}; separator="\n"$
-
+   
+   $if(package)$
+   // a readonly field that gets populated only while reading reasources
+   private String[] schemas;
+   $endif$
+   
    $if(schemaId)$
     public static String SCHEMA = "$schemaId$";
    $endif$
@@ -47,6 +52,12 @@ $visibility$ $static$ class $className$
     }
     
    }$
+   
+  $if(package)$
+   public String[] getSchemas() {
+     return schemas;
+   }
+  $endif$
    
    $allInnerClasses: { innerClass | $innerClass$ }; separator="\n"$
 }

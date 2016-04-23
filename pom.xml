@@ -22,5 +22,6 @@
   <modules>
     <module>json2java</module>
     <module>client</module>
+    <module>base</module>
   </modules>
 </project>
