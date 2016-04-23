@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.net.URL;
@@ -23,6 +22,7 @@ import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -36,6 +36,9 @@ public class JsonToJava extends AbstractMojo {
     @Parameter
     private String baseUrl;
 
+    @Parameter(defaultValue = "${project}")
+    private MavenProject project;
+    
     @Parameter(defaultValue = "${project.build.directory}")
     protected File targetDirectory;
 
@@ -48,26 +51,25 @@ public class JsonToJava extends AbstractMojo {
 
         String packageDirPath = generatePackage.replace(".", "/");
 
-        File srcDir = new File(targetDirectory,
-                "generated-sources/json2java/" + packageDirPath);
+        File srcRoot = new File(targetDirectory, "generated-sources/json2java");
+        File srcDir = new File( srcRoot, packageDirPath);
 
-        log.debug("Creating directories for storing generated source files");
+        log.debug("Creating directory " + srcDir.getAbsolutePath() + " for storing generated source files");
 
         if (!srcDir.exists()) {
             boolean created = srcDir.mkdirs();
             if (!created) {
-                String msg = "Failed to create the directory "
-                        + srcDir.getAbsolutePath()
-                        + " to store the generated source files";
+                String msg = "Failed to create the directory " + srcDir.getAbsolutePath();
                 log.warn(msg);
                 throw new MojoFailureException(msg);
             }
         }
 
+        project.addCompileSourceRoot(srcRoot.getAbsolutePath());
+        
         try {
-            compileAndSave(srcDir);
+            generateAndSave(srcDir);
         } catch (Exception e) {
-            e.printStackTrace();
             throw new RuntimeException(e);
         }
     }
@@ -101,10 +103,10 @@ public class JsonToJava extends AbstractMojo {
         }
     }
 
-    public void compileAndSave(File srcDir) throws MojoExecutionException {
+    public void generateAndSave(File srcDir) throws MojoExecutionException {
         Gson gson = new Gson();
 
-        getLog().info("Fetching resourcetypes");
+        getLog().info("Fetching ResourceTypes...");
         String rtJson = fetch(baseUrl + "/ResourceTypes");
 
         Type rtt = new TypeToken<List<ResourceType>>() {
@@ -112,7 +114,7 @@ public class JsonToJava extends AbstractMojo {
 
         List<ResourceType> resTypes = gson.fromJson(rtJson, rtt);
 
-        getLog().info("Fetching schemas");
+        getLog().info("Fetching Schemas...");
         String scJson = fetch(baseUrl + "/Schemas");
 
         Type st = new TypeToken<List<Schema>>() {
@@ -126,15 +128,15 @@ public class JsonToJava extends AbstractMojo {
         }
 
         for (ResourceType rt : resTypes) {
-            _compileAndSave(rt, scMap, srcDir);
+            _generateAndSave(rt, scMap, srcDir);
         }
     }
 
-    public void _compileAndSave(ResourceType rt, Map<String, Schema> schemas,
+    public void _generateAndSave(ResourceType rt, Map<String, Schema> schemas,
             File srcDir) throws MojoExecutionException {
         getLog().info("Generating model for resource type " + rt.name);
 
-        String className = rt.name;
+        String className = makeClassName(rt.name);
 
         StringTemplate template = generateClass(rt, schemas);
 
@@ -146,10 +148,7 @@ public class JsonToJava extends AbstractMojo {
             fw = new FileWriter(javaFile);
             fw.write(template.toString());
         } catch (IOException e) {
-            throw new MojoExecutionException(
-                    "Failed to store the generated source file for schema "
-                            + className,
-                    e);
+            throw new MojoExecutionException("Failed to store the generated source file for resource type " + rt.name,  e);
         } finally {
             if (fw != null) {
                 try {
@@ -161,28 +160,23 @@ public class JsonToJava extends AbstractMojo {
         }
     }
 
-    private StringTemplate generateClass(ResourceType rt,
-            Map<String, Schema> schemas) {
-        StringTemplate template = stg.getInstanceOf("resource-class");
+    private StringTemplate generateClass(ResourceType rt, Map<String, Schema> schemas) {
+        StringTemplate template = stg.getInstanceOf("resource");
 
         template.setAttribute("schemaId", rt.schema);
-
         template.setAttribute("date", new Date());
-
         template.setAttribute("package", generatePackage);
-
         template.setAttribute("visibility", "public");
-
         template.setAttribute("resourceDesc", rt.description);
-
         template.setAttribute("className", rt.name);
+        template.setAttribute("endpoint", rt.endpoint);
 
         List<String> innerClasses = new ArrayList<String>();
 
         Schema coreSchema = schemas.get(rt.schema);
 
         for (AttributeType at : coreSchema.attributes) {
-            if (!at.type.equalsIgnoreCase("complex")) {
+            if (!at.isComplex()) {
                 prepareSimpleAttribute(at, template);
             } else {
                 innerClasses.add(addComplexAttribute(rt.name, at));
@@ -199,16 +193,17 @@ public class JsonToJava extends AbstractMojo {
 
             for(Extension et : rt.schemaExtensions) {
                 Schema sc = schemas.get(et.schema);
-                StringTemplate extTemplate = stg.getInstanceOf("resource-class");
+                StringTemplate extTemplate = stg.getInstanceOf("resource");
                 
                 String extClassName = makeClassName(sc.name);
-                extTemplate.setAttribute("visibility", "static");
+                extTemplate.setAttribute("visibility", "public");
+                extTemplate.setAttribute("static", "static");
                 extTemplate.setAttribute("className", extClassName);
                 
                 List<String> extInnerClasses = new ArrayList<String>();
                 
                 for (AttributeType at : sc.attributes) {
-                    if (!at.type.equalsIgnoreCase("complex")) {
+                    if (!at.isComplex()) {
                         prepareSimpleAttribute(at, extTemplate);
                     } else {
                         innerClasses.add(addComplexAttribute(sc.name, at));
@@ -253,7 +248,7 @@ public class JsonToJava extends AbstractMojo {
     }
 
     private String addComplexAttribute(String parentClassName, AttributeType at) {
-        StringTemplate template = stg.getInstanceOf("resource-class");
+        StringTemplate template = stg.getInstanceOf("resource");
         
         String className = makeClassName(at.name);
         
@@ -269,6 +264,7 @@ public class JsonToJava extends AbstractMojo {
         }
         
         
+        template.setAttribute("visibility", "public");
         template.setAttribute("static", "static");
         template.setAttribute("className", className);
         

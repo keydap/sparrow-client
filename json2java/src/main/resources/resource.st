@@ -2,25 +2,24 @@ $if(package)$
 
 package $package$;
 
-import com.keydap.sparrow.*;
+import com.keydap.sparrow.Extension;
+import com.keydap.sparrow.Resource;
 import java.util.List;
 
 /*
  * Generated on $date$ using Keydap Sparrow's json2java plugin 
  */
-/*
-//$endpoint$
-//$resourceDesc$
-*/
+
+@Resource(schemaId="$schemaId$", endpoint="$endpoint$", desc="$resourceDesc$")$\n$
 $endif$
 $visibility$ $static$ class $className$
 {
-
    $allAttrs: { attr |
    $if(attr.extension)$
+   $\n$
    @Extension("$attr.schema$")
-   $endif$ 
-   private $attr.type$ $attr.name$;}; separator="\n\n"$
+   $endif$
+   private $attr.type$ $attr.name$;}; separator="\n"$
 
    $if(schemaId)$
     public static String SCHEMA = "$schemaId$";
@@ -48,7 +47,6 @@ $visibility$ $static$ class $className$
     }
     
    }$
-    
-    
-    $allInnerClasses: { innerClass | $innerClass$ }; separator="\n\n"$
+   
+   $allInnerClasses: { innerClass | $innerClass$ }; separator="\n"$
 }

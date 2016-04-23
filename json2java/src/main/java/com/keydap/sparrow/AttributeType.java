@@ -41,6 +41,10 @@ public class AttributeType {
         return "boolean".equalsIgnoreCase(type);
     }
     
+    public boolean isComplex() {
+        return "complex".equalsIgnoreCase(type);
+    }
+    
     public String getMethodName()
     {
         return Character.toUpperCase( name.charAt( 0 ) ) + name.substring( 1 );
