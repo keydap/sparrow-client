@@ -7,6 +7,8 @@
 package com.keydap.sparrow;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Type;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -15,8 +17,12 @@ import java.util.Set;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
@@ -32,12 +38,14 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
 
 /**
  * A client for any SCIM v2.0 compliant server.
  * 
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
+//@SuppressWarnings("all")
 public class ScimClient {
 
     /** the base API URL of the SCIM server e.g https://sparrow.keydap.com/v2 */
@@ -74,7 +82,10 @@ public class ScimClient {
         client = builder.build();
 
         GsonBuilder gb = new GsonBuilder();
-        // gb.disableInnerClassSerialization();
+        
+        Type dt = new TypeToken<Date>(){}.getType();
+        gb.registerTypeAdapter(dt, new DateTimeSerializer());
+        
         serializer = gb.create();
     }
 
@@ -134,6 +145,54 @@ public class ScimClient {
         return sendRequest(post, resClas);
     }
 
+    public <T> Response<T> replaceResource(T rs) {
+        Class resClas = rs.getClass();
+        String endpoint = classEndpointMap.get(resClas);
+        HttpPut put = new HttpPut(baseApiUrl + endpoint);
+        setBody(put, rs, endpoint, resClas);
+        return sendRequest(put, resClas);
+    }
+
+    public <T> Response<T> modifyResource(T rs) {
+        Class resClas = rs.getClass();
+        String endpoint = classEndpointMap.get(resClas);
+        HttpPatch patch = new HttpPatch(baseApiUrl + endpoint);
+        setBody(patch, rs, endpoint, resClas);
+        return sendRequest(patch, resClas);
+    }
+
+    public Response<Boolean> deleteResource(String id, Class resourceType) {
+        String endpoint = classEndpointMap.get(resourceType);
+        HttpDelete delete = new HttpDelete(baseApiUrl + endpoint + "/" + id);
+        Response<Boolean> resp = sendRequest(delete, resourceType);
+        if(resp.getHttpCode() == 200) {
+            resp.setResource(true);
+        }else {
+            resp.setResource(false);
+        }
+        
+        return resp;
+    }
+    
+    public <T> Response<T> getResource(String id, Class<T> resClas) {
+        String endpoint = classEndpointMap.get(resClas);
+        HttpGet get = new HttpGet(baseApiUrl + endpoint + "/" + id);
+        return sendRequest(get, resClas);
+    }
+
+    public <T> Response<T> searchResource(String filter, Class<T> resClas) {
+        String endpoint = classEndpointMap.get(resClas);
+        
+        StringBuilder url = new StringBuilder(baseApiUrl);
+        url.append(endpoint);
+        url.append("/?filter=");
+        url.append(filter);
+        
+        HttpGet get = new HttpGet(url.toString());
+        return sendRequest(get, resClas);
+    }
+
+
     private <T> Response<T> sendRequest(HttpUriRequest req, Class<T> resClas) {
         try {
             LOG.debug("Sending {} request to {}", req.getMethod(), req.getURI());
@@ -165,10 +224,19 @@ public class ScimClient {
             }
 
             result.setHttpBody(json);
+            result.setHeaders(resp.getAllHeaders());
             
             return result;
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            LOG.warn("", e);
+            Response<T> result = new Response<T>();
+            result.setHttpCode(-1);
+            Error err = new Error();
+            
+            err.setDetail(e.getMessage());
+            result.setError(err);
+            
+            return result;
         }
     }
 

@@ -5,6 +5,7 @@ package $package$;
 import com.keydap.sparrow.Extension;
 import com.keydap.sparrow.Resource;
 import java.util.List;
+import java.util.Date;
 
 /*
  * Generated on $date$ using Keydap Sparrow's json2java plugin 

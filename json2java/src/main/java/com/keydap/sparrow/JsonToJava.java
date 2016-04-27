@@ -175,6 +175,8 @@ public class JsonToJava extends AbstractMojo {
 
         Schema coreSchema = schemas.get(rt.schema);
 
+        addCommonAtTypes(coreSchema);
+        
         for (AttributeType at : coreSchema.attributes) {
             if (!at.isComplex()) {
                 prepareSimpleAttribute(at, template);
@@ -234,7 +236,7 @@ public class JsonToJava extends AbstractMojo {
 
     private void prepareSimpleAttribute(AttributeType at, StringTemplate template) {
         if (at.type.equalsIgnoreCase("dateTime")) {
-            at.type = "long";
+            at.type = "Date";
         } else if (at.type.equalsIgnoreCase("reference")
                 || at.type.equalsIgnoreCase("string")) {
             at.type = "String";
@@ -312,6 +314,91 @@ public class JsonToJava extends AbstractMojo {
         return fieldName;
     }
 
+    private void addCommonAtTypes(Schema schema) {
+        List<AttributeType> atList = new ArrayList<AttributeType>();
+        
+        // common attribute types
+        AttributeType id = new AttributeType();
+        id.multiValued = false;
+        id.description = "Identifier of the resource";
+        id.mutability = "readOnly";
+        id.type = "string";
+        id.name = "id";
+        atList.add(id);
+
+        AttributeType externalId = new AttributeType();
+        externalId.multiValued = false;
+        externalId.description = "External identifier of the resource";
+        externalId.mutability = "readWrite";
+        externalId.type = "string";
+        externalId.name = "externalId";
+        atList.add(externalId);
+
+        AttributeType meta = new AttributeType();
+        meta.multiValued = false;
+        meta.description = "Metadata of the resource";
+        meta.mutability = "readOnly";
+        meta.type = "complex";
+        meta.name = "meta";
+        atList.add(meta);
+        
+        meta.subAttributes = new ArrayList<AttributeType>();
+        
+        AttributeType resourceType = new AttributeType();
+        resourceType.multiValued = false;
+        resourceType.description = "The name of the resource type of the resource";
+        resourceType.mutability = "readOnly";
+        resourceType.type = "string";
+        resourceType.name = "resourceType";
+        meta.subAttributes.add(resourceType);
+
+        AttributeType created = new AttributeType();
+        created.multiValued = false;
+        created.description = "The date and time when the resource was added";
+        created.mutability = "readOnly";
+        created.type = "datetime";
+        created.name = "created";
+        meta.subAttributes.add(created);
+
+        AttributeType lastModified = new AttributeType();
+        lastModified.multiValued = false;
+        lastModified.description = "The date and time when the resource was last modified";
+        lastModified.mutability = "readOnly";
+        lastModified.type = "datetime";
+        lastModified.name = "lastModified";
+        meta.subAttributes.add(lastModified);
+
+        AttributeType location = new AttributeType();
+        location.multiValued = false;
+        location.description = "The location of the resource";
+        location.mutability = "readOnly";
+        location.type = "string";
+        location.name = "location";
+        meta.subAttributes.add(location);
+
+        AttributeType version = new AttributeType();
+        version.multiValued = false;
+        version.description = "The version of the resource";
+        version.mutability = "readOnly";
+        version.type = "string";
+        version.name = "version";
+        meta.subAttributes.add(version);
+
+        for(AttributeType at : schema.attributes) {
+            String name = at.name;
+            // if the
+            if(name.equalsIgnoreCase(id.name) 
+                    || name.equalsIgnoreCase(externalId.name)
+                    || name.equalsIgnoreCase(meta.name)) {
+                continue;
+            }
+            
+            atList.add(at);
+        }
+        
+        schema.attributes = atList;
+    }
+    
     public static void main(String[] args) throws Exception {
         JsonToJava jj = new JsonToJava();
         jj.baseUrl = "http://localhost:9090/v2";

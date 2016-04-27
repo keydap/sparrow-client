@@ -24,24 +24,28 @@ public enum Status {
     NotImplemented("501"),
     UNKNOWN("-1");
 
-    private String code;
+    private String value;
     
     private Status(String code) {
-        this.code = code;
+        this.value = code;
     }
     
     public static Status byCode(int code) {
-        return byCode(String.valueOf(code));
+        return byValue(String.valueOf(code));
     }
     
-    public static Status byCode(String code) {
+    public static Status byValue(String code) {
         for(Status s : values()) {
-            if (s.code.equals(code)) {
+            if (s.value.equals(code)) {
                 return s;
             }
         }
         
         return UNKNOWN;
+    }
+
+    public String value() {
+        return value;
     }
 
 }

@@ -32,6 +32,10 @@ public class Error {
         return status;
     }
 
+    /*default protection*/ void setDetail(String detail) {
+        this.detail = detail;
+    }
+
     @Override
     public String toString() {
         return "Error [scimType=" + scimType + ", detail=" + detail
