@@ -8,14 +8,19 @@ package com.keydap.sparrow;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
+import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -24,10 +29,12 @@ import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
@@ -38,6 +45,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
 /**
@@ -180,20 +188,151 @@ public class ScimClient {
         return sendRequest(get, resClas);
     }
 
-    public <T> Response<T> searchResource(String filter, Class<T> resClas) {
+    public <T> SearchResponse<T> searchResource(Class<T> resClas) {
         String endpoint = classEndpointMap.get(resClas);
         
         StringBuilder url = new StringBuilder(baseApiUrl);
         url.append(endpoint);
-        url.append("/?filter=");
-        url.append(filter);
         
         HttpGet get = new HttpGet(url.toString());
-        return sendRequest(get, resClas);
+        return sendSearchRequest(get, resClas);
+    }
+    
+    public <T> SearchResponse<T> searchResource(String filter, Class<T> resClas) {
+        String endpoint = classEndpointMap.get(resClas);
+        
+        StringBuilder url = new StringBuilder(baseApiUrl);
+        url.append(endpoint);
+        
+        if(filter != null) {
+            url.append("/?filter=");
+            try {
+                url.append(URLEncoder.encode(filter, "utf-8"));
+            }
+            catch(Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        HttpGet get = new HttpGet(url.toString());
+        return sendSearchRequest(get, resClas);   
+    }
+    
+    public <T> SearchResponse<T> searchResource(String filter, Class<T> resClas, String... attributes) {
+        return searchResource(filter, resClas, attributes, true);
+    }
+    
+    public <T> SearchResponse<T> searchResource(SearchRequest sr, Class<T> resClas) {
+        String endpoint = classEndpointMap.get(resClas);
+        
+        StringBuilder url = new StringBuilder(baseApiUrl);
+        url.append(endpoint).append("/.search");
+        
+        HttpPost post = new HttpPost(url.toString());
+        String json = serializer.toJson(sr);
+        StringEntity entity = new StringEntity(json, MIME_TYPE);
+        post.setEntity(entity);
+
+        return sendSearchRequest(post, resClas);        
+    }
+    
+    public <T> SearchResponse<T> searchResource(String filter, Class<T> resClas, String[] attributes, boolean include) {
+        SearchRequest sr = new SearchRequest();
+        sr.setFilter(filter);
+        
+        if (attributes != null) {
+            int i = 0;
+            StringBuilder sb = new StringBuilder();
+            for(; i < attributes.length-1; i++) {
+                sb.append(attributes[i]).append(',');
+            }
+            sb.append(attributes[i]);
+            
+            if(include) {
+                sr.setAttributes(sb.toString());
+            } else {
+                sr.setExcludedAttributes(sb.toString());
+            }
+        }
+        
+        return searchResource(sr, resClas);
     }
 
+    private <T> SearchResponse<T> sendSearchRequest(HttpUriRequest req, Class<T> resClas) {
+        SearchResponse<T> result = new SearchResponse<T>();
+        try {
+            LOG.debug("Sending {} request to {}", req.getMethod(), req.getURI());
+            HttpResponse resp = client.execute(req);
+            StatusLine sl = resp.getStatusLine();
+            int code = sl.getStatusCode();
+            
+            LOG.debug("Received status code {} from the request to {}", code, req.getURI());
+            
+            HttpEntity entity = resp.getEntity();
+            String json = null;
+            if (entity != null) {
+                json = EntityUtils.toString(entity);
+            }
+
+            result.setHttpBody(json);
+            result.setHttpCode(code);
+            result.setHeaders(resp.getAllHeaders());
+            
+            // if it is success there will be response body to read
+            if (code == 200) {
+                if(json != null) { // DELETE will have no response body, so check for null
+                    
+                    JsonObject obj = (JsonObject) new JsonParser().parse(json);
+                    JsonElement je = obj.get("totalResults");
+                    if(je != null) {
+                        result.setTotalResults(je.getAsInt());
+                    }
+                    
+                    je = obj.get("startIndex");
+                    if(je != null) {
+                        result.setStartIndex(je.getAsInt());
+                    }
+
+                    je = obj.get("itemsPerPage");
+                    if(je != null) {
+                        result.setItemsPerPage(je.getAsInt());
+                    }
+                    
+                    je = obj.get("Resources"); // yes, the 'R' in resources must be upper case
+                    if(je != null) {
+                        JsonArray arr = je.getAsJsonArray();
+                        Iterator<JsonElement> itr = arr.iterator();
+                        List<T> resources = new ArrayList<T>();
+                        while(itr.hasNext()) {
+                            JsonObject r = (JsonObject) itr.next();
+                            resources.add(serializer.fromJson(r, resClas));
+                        }
+                        
+                        if(!resources.isEmpty()) {
+                            result.setResources(resources);
+                        }
+                    }
+                }
+            } else {
+                if(json != null) {
+                    Error error = serializer.fromJson(json, Error.class);
+                    result.setError(error);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            LOG.warn("", e);
+            result.setHttpCode(-1);
+            Error err = new Error();
+            
+            err.setDetail(e.getMessage());
+            result.setError(err);
+        }
+        return result;
+    }
 
     private <T> Response<T> sendRequest(HttpUriRequest req, Class<T> resClas) {
+        Response<T> result = new Response<T>();
         try {
             LOG.debug("Sending {} request to {}", req.getMethod(), req.getURI());
             HttpResponse resp = client.execute(req);
@@ -207,7 +346,6 @@ public class ScimClient {
                 json = EntityUtils.toString(entity);
             }
             
-            Response<T> result = new Response<T>();
             result.setHttpCode(code);
             
             // if it is success there will be response body to read
@@ -225,19 +363,16 @@ public class ScimClient {
 
             result.setHttpBody(json);
             result.setHeaders(resp.getAllHeaders());
-            
-            return result;
         } catch (Exception e) {
             LOG.warn("", e);
-            Response<T> result = new Response<T>();
             result.setHttpCode(-1);
             Error err = new Error();
             
             err.setDetail(e.getMessage());
             result.setError(err);
-            
-            return result;
         }
+        
+        return result;
     }
 
     private <T> void setBody(
