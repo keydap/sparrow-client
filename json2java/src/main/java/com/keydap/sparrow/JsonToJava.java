@@ -242,8 +242,11 @@ public class JsonToJava extends AbstractMojo {
             at.type = "String";
         } else if (at.type.equalsIgnoreCase("binary")) {
             at.type = "byte[]";
+        } else if (at.type.equalsIgnoreCase("decimal")) {
+            at.type = "double";
+        } else if (at.type.equalsIgnoreCase("integer")) {
+            at.type = "int";
         }
-        
         if (at.multiValued) {
             at.type = "List<" + at.type + ">";
         }
