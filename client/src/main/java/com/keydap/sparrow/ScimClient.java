@@ -76,7 +76,7 @@ public class ScimClient {
 
     private Map<String, Set<Field>> endpointExtFieldMap = new HashMap<String, Set<Field>>();
 
-    private static final ContentType MIME_TYPE = ContentType
+    public static final ContentType MIME_TYPE = ContentType
             .create("application/scim+json", HTTP.DEF_CONTENT_CHARSET);
 
     /**
@@ -147,32 +147,32 @@ public class ScimClient {
 
     public <T> Response<T> addResource(T rs) {
         Class resClas = rs.getClass();
-        String endpoint = classEndpointMap.get(resClas);
+        String endpoint = getEndpoint(resClas);
         HttpPost post = new HttpPost(baseApiUrl + endpoint);
-        setBody(post, rs, endpoint, resClas);
-        return sendRequest(post, resClas);
+        setBody(post, rs);
+        return sendRawRequest(post, resClas);
     }
 
     public <T> Response<T> replaceResource(T rs) {
         Class resClas = rs.getClass();
-        String endpoint = classEndpointMap.get(resClas);
+        String endpoint = getEndpoint(resClas);
         HttpPut put = new HttpPut(baseApiUrl + endpoint);
-        setBody(put, rs, endpoint, resClas);
-        return sendRequest(put, resClas);
+        setBody(put, rs);
+        return sendRawRequest(put, resClas);
     }
 
     public <T> Response<T> modifyResource(T rs) {
         Class resClas = rs.getClass();
-        String endpoint = classEndpointMap.get(resClas);
+        String endpoint = getEndpoint(resClas);
         HttpPatch patch = new HttpPatch(baseApiUrl + endpoint);
-        setBody(patch, rs, endpoint, resClas);
-        return sendRequest(patch, resClas);
+        setBody(patch, rs);
+        return sendRawRequest(patch, resClas);
     }
 
     public Response<Boolean> deleteResource(String id, Class resourceType) {
-        String endpoint = classEndpointMap.get(resourceType);
+        String endpoint = getEndpoint(resourceType);
         HttpDelete delete = new HttpDelete(baseApiUrl + endpoint + "/" + id);
-        Response<Boolean> resp = sendRequest(delete, resourceType);
+        Response<Boolean> resp = sendRawRequest(delete, resourceType);
         if(resp.getHttpCode() == 200) {
             resp.setResource(true);
         }else {
@@ -183,13 +183,13 @@ public class ScimClient {
     }
     
     public <T> Response<T> getResource(String id, Class<T> resClas) {
-        String endpoint = classEndpointMap.get(resClas);
+        String endpoint = getEndpoint(resClas);
         HttpGet get = new HttpGet(baseApiUrl + endpoint + "/" + id);
-        return sendRequest(get, resClas);
+        return sendRawRequest(get, resClas);
     }
 
     public <T> SearchResponse<T> searchResource(Class<T> resClas) {
-        String endpoint = classEndpointMap.get(resClas);
+        String endpoint = getEndpoint(resClas);
         
         StringBuilder url = new StringBuilder(baseApiUrl);
         url.append(endpoint);
@@ -199,7 +199,7 @@ public class ScimClient {
     }
     
     public <T> SearchResponse<T> searchResource(String filter, Class<T> resClas) {
-        String endpoint = classEndpointMap.get(resClas);
+        String endpoint = getEndpoint(resClas);
         
         StringBuilder url = new StringBuilder(baseApiUrl);
         url.append(endpoint);
@@ -223,7 +223,7 @@ public class ScimClient {
     }
     
     public <T> SearchResponse<T> searchResource(SearchRequest sr, Class<T> resClas) {
-        String endpoint = classEndpointMap.get(resClas);
+        String endpoint = getEndpoint(resClas);
         
         StringBuilder url = new StringBuilder(baseApiUrl);
         url.append(endpoint).append("/.search");
@@ -258,7 +258,11 @@ public class ScimClient {
         return searchResource(sr, resClas);
     }
 
-    private <T> SearchResponse<T> sendSearchRequest(HttpUriRequest req, Class<T> resClas) {
+    public <T> SearchResponse<T> sendSearchRequest(HttpUriRequest req, Class<T> resClas) {
+        if (!((req instanceof HttpGet) || (req instanceof HttpPost))) {
+            throw new IllegalArgumentException("Invalid HTTP method " + req.getMethod() + ", only GET and POST are allowed for searching");
+        }
+        
         SearchResponse<T> result = new SearchResponse<T>();
         try {
             LOG.debug("Sending {} request to {}", req.getMethod(), req.getURI());
@@ -331,7 +335,7 @@ public class ScimClient {
         return result;
     }
 
-    private <T> Response<T> sendRequest(HttpUriRequest req, Class<T> resClas) {
+    public <T> Response<T> sendRawRequest(HttpUriRequest req, Class<T> resClas) {
         Response<T> result = new Response<T>();
         try {
             LOG.debug("Sending {} request to {}", req.getMethod(), req.getURI());
@@ -375,14 +379,20 @@ public class ScimClient {
         return result;
     }
 
-    private <T> void setBody(
-            HttpEntityEnclosingRequestBase req, T rs, String endpoint, Class<?> resClas) {
+    private <T> void setBody(HttpEntityEnclosingRequestBase req, T rs) {
+        String data = serialize(rs).toString();
+        StringEntity entity = new StringEntity(data, MIME_TYPE);
+        req.setEntity(entity);
+    }
+
+    public <T> JsonObject serialize(T rs) {
         JsonObject json = (JsonObject) serializer.toJsonTree(rs);
         
         JsonArray schemas = new JsonArray();
-        schemas.add(resClas.getAnnotation(Resource.class).schemaId());
+        Resource r = rs.getClass().getAnnotation(Resource.class);
+        schemas.add(r.schemaId());
         
-        Set<Field> extFields = endpointExtFieldMap.get(endpoint);
+        Set<Field> extFields = endpointExtFieldMap.get(r.endpoint());
         if (extFields != null) {
             for (Field f : extFields) {
                 JsonElement je = json.remove(f.getName());
@@ -397,8 +407,15 @@ public class ScimClient {
 
         json.add("schemas", schemas);
         
-        StringEntity entity = new StringEntity(json.toString(), MIME_TYPE);
-        req.setEntity(entity);
+        return json;
     }
-
+    
+    private String getEndpoint(Class resClas) {
+        String ep = classEndpointMap.get(resClas);
+        if (ep == null) {
+            throw new IllegalArgumentException("There is no endpoint found with the given resource class. Resource class must be registered to avoid this error");
+        }
+        
+        return ep;
+    }
 }
