@@ -72,6 +72,8 @@ public class ScimClient {
     
     private Map<String, Class<?>> endpointClassMap = new HashMap<String, Class<?>>();
 
+    private Map<String, Class<?>> schemaIdClassMap = new HashMap<String, Class<?>>();
+
     private Map<Class<?>, String> classEndpointMap = new HashMap<Class<?>, String>();
 
     private Map<String, Set<Field>> endpointExtFieldMap = new HashMap<String, Set<Field>>();
@@ -124,6 +126,7 @@ public class ScimClient {
                 throw new IllegalArgumentException(err);
             }
             
+            schemaIdClassMap.put(schemaId, rc);
             endpointClassMap.put(endpoint, rc);
             classEndpointMap.put(rc, endpoint);
 
@@ -224,7 +227,14 @@ public class ScimClient {
     
     public <T> SearchResponse<T> searchResource(SearchRequest sr, Class<T> resClas) {
         String endpoint = getEndpoint(resClas);
-        
+        return _searchResource(sr, endpoint, resClas);
+    }
+    
+    public SearchResponse<Object> searchAll(SearchRequest sr) {
+        return _searchResource(sr, "", null);
+    }
+    
+    private <T> SearchResponse<T> _searchResource(SearchRequest sr, String endpoint, Class<T> resClas) {
         StringBuilder url = new StringBuilder(baseApiUrl);
         url.append(endpoint).append("/.search");
         
@@ -258,11 +268,7 @@ public class ScimClient {
         return searchResource(sr, resClas);
     }
 
-    public <T> SearchResponse<T> sendSearchRequest(HttpUriRequest req, Class<T> resClas) {
-        if (!((req instanceof HttpGet) || (req instanceof HttpPost))) {
-            throw new IllegalArgumentException("Invalid HTTP method " + req.getMethod() + ", only GET and POST are allowed for searching");
-        }
-        
+    private <T> SearchResponse<T> sendSearchRequest(HttpUriRequest req, Class<T> resClas) {
         SearchResponse<T> result = new SearchResponse<T>();
         try {
             LOG.debug("Sending {} request to {}", req.getMethod(), req.getURI());
@@ -309,7 +315,16 @@ public class ScimClient {
                         List<T> resources = new ArrayList<T>();
                         while(itr.hasNext()) {
                             JsonObject r = (JsonObject) itr.next();
-                            resources.add(serializer.fromJson(r, resClas));
+                            if (resClas != null) {
+                                resources.add(serializer.fromJson(r, resClas));
+                            } else {
+                                T rsObj = deserialize(r);
+                                if(rsObj == null) {
+                                    LOG.warn("No resgistered resource class found to deserialize the resource data {}", r);
+                                } else {
+                                    resources.add(rsObj);
+                                }
+                            }
                         }
                         
                         if(!resources.isEmpty()) {
@@ -335,6 +350,24 @@ public class ScimClient {
         return result;
     }
 
+    private <T> T deserialize(JsonObject json) {
+        JsonArray schemas = json.get("schemas").getAsJsonArray();
+        Iterator<JsonElement> itr = schemas.iterator();
+        
+        T obj = null;
+        
+        while(itr.hasNext()) {
+            String id = itr.next().getAsString();
+            Class<?> rc = schemaIdClassMap.get(id);
+            if(rc != null) {
+                obj = (T) serializer.fromJson(json, rc);
+                break;
+            }
+        }
+        
+        return obj;
+    }
+    
     public <T> Response<T> sendRawRequest(HttpUriRequest req, Class<T> resClas) {
         Response<T> result = new Response<T>();
         try {
