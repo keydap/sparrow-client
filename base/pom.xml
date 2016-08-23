@@ -4,11 +4,11 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>com.keydap.sparrow</groupId>
-    <artifactId>sparrow-client</artifactId>
+    <artifactId>sparrow-parent</artifactId>
     <version>1.0-SNAPSHOT</version>
   </parent>
-  <artifactId>base</artifactId>
-  <name>base</name>
+  <artifactId>sparrow-base</artifactId>
+  <name>Sparrow Base</name>
   <dependencies>
   </dependencies>
 </project>

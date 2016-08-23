@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.keydap.sparrow</groupId>
-        <artifactId>sparrow-client</artifactId>
+        <artifactId>sparrow-parent</artifactId>
         <version>1.0-SNAPSHOT</version>
     </parent>
-    <artifactId>json2java</artifactId>
-    <name>json2java</name>
+    <artifactId>sparrow-json2java</artifactId>
+    <name>sparrow-json2java</name>
     <packaging>maven-plugin</packaging>
     <dependencies>
         <dependency>
