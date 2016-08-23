@@ -20,7 +20,6 @@ import java.util.Set;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
-import org.apache.http.NameValuePair;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -29,12 +28,10 @@ import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
@@ -47,6 +44,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
+import static org.apache.http.HttpStatus.*;
 
 /**
  * A client for any SCIM v2.0 compliant server.
@@ -176,7 +174,7 @@ public class ScimClient {
         String endpoint = getEndpoint(resourceType);
         HttpDelete delete = new HttpDelete(baseApiUrl + endpoint + "/" + id);
         Response<Boolean> resp = sendRawRequest(delete, resourceType);
-        if(resp.getHttpCode() == 200) {
+        if(resp.getHttpCode() == SC_NO_CONTENT) {
             resp.setResource(true);
         }else {
             resp.setResource(false);
@@ -386,7 +384,7 @@ public class ScimClient {
             result.setHttpCode(code);
             
             // if it is success there will be response body to read
-            if (code == 200 || code == 201) {
+            if (code == SC_OK || code == SC_CREATED) {
                 if(json != null) { // DELETE will have no response body, so check for null
                     T t = serializer.fromJson(json, resClas);
                     result.setResource(t);
