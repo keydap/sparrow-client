@@ -28,6 +28,7 @@ import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -51,7 +52,7 @@ import static org.apache.http.HttpStatus.*;
  * 
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
-//@SuppressWarnings("all")
+@SuppressWarnings("all")
 public class ScimClient {
 
     /** the base API URL of the SCIM server e.g https://sparrow.keydap.com/v2 */
@@ -154,19 +155,34 @@ public class ScimClient {
         return sendRawRequest(post, resClas);
     }
 
-    public <T> Response<T> replaceResource(T rs) {
+    public <T> Response<T> replaceResource(String id, T rs) {
         Class resClas = rs.getClass();
         String endpoint = getEndpoint(resClas);
-        HttpPut put = new HttpPut(baseApiUrl + endpoint);
+        HttpPut put = new HttpPut(baseApiUrl + endpoint + "/" + id);
         setBody(put, rs);
         return sendRawRequest(put, resClas);
     }
 
-    public <T> Response<T> modifyResource(T rs) {
-        Class resClas = rs.getClass();
+    public <T> Response<T> patchResource(PatchRequest pr) {
+        Class resClas = pr.getResClass();
         String endpoint = getEndpoint(resClas);
-        HttpPatch patch = new HttpPatch(baseApiUrl + endpoint);
-        setBody(patch, rs);
+        
+        String url = baseApiUrl + endpoint + "/" + pr.getId();
+        
+        if(pr.getAttributes() != null) {
+            String encoded;
+            try {
+                encoded = URLEncoder.encode(pr.getAttributes(), "utf-8");
+            }
+            catch(Exception e) {
+                throw new RuntimeException(e);
+            }
+            
+            url += "?attributes=" + encoded;
+        }
+        
+        HttpPatch patch = new HttpPatch(url);
+        setBody(patch, pr);
         return sendRawRequest(patch, resClas);
     }
 
@@ -419,24 +435,26 @@ public class ScimClient {
     public <T> JsonObject serialize(T rs) {
         JsonObject json = (JsonObject) serializer.toJsonTree(rs);
         
-        JsonArray schemas = new JsonArray();
         Resource r = rs.getClass().getAnnotation(Resource.class);
-        schemas.add(r.schemaId());
-        
-        Set<Field> extFields = endpointExtFieldMap.get(r.endpoint());
-        if (extFields != null) {
-            for (Field f : extFields) {
-                JsonElement je = json.remove(f.getName());
-                if(je != null) {
-                    Extension extSchema = f.getAnnotation(Extension.class);
-                    String schemaId = extSchema.value();
-                    json.add(schemaId, je);
-                    schemas.add(schemaId);
+        if(r != null) {
+            JsonArray schemas = new JsonArray();
+            schemas.add(r.schemaId());
+            
+            Set<Field> extFields = endpointExtFieldMap.get(r.endpoint());
+            if (extFields != null) {
+                for (Field f : extFields) {
+                    JsonElement je = json.remove(f.getName());
+                    if(je != null) {
+                        Extension extSchema = f.getAnnotation(Extension.class);
+                        String schemaId = extSchema.value();
+                        json.add(schemaId, je);
+                        schemas.add(schemaId);
+                    }
                 }
             }
+            
+            json.add("schemas", schemas);
         }
-
-        json.add("schemas", schemas);
         
         return json;
     }

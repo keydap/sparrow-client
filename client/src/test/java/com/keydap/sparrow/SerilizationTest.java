@@ -10,6 +10,9 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.keydap.sparrow.PatchRequest.PatchOperation;
 
 /**
  *
@@ -27,5 +30,33 @@ public class SerilizationTest {
         assertNotNull(e.getSchemas());
         assertNotNull(e.getScimType());
         assertNotNull(e.getStatus());
+    }
+    
+    @Test
+    public void testSerializePatchReq() {
+        PatchRequest pr = new PatchRequest("", PatchRequest.class);
+        JsonObject members = new JsonObject();
+        members.addProperty("ref", "abc");
+        pr.add("members", members);
+        
+        String json = serializer.toJson(pr);
+        
+        // check that schemas field is present
+        JsonObject jObj = (JsonObject) new JsonParser().parse(json);
+        assertNotNull(jObj.get("schemas").getAsJsonArray());
+        
+        PatchRequest deserPr = serializer.fromJson(json, PatchRequest.class);
+        assertEquals(1, deserPr.getOperations().size());
+        
+        PatchOperation po = deserPr.getOperations().get(0);
+        assertNotNull(po);
+        assertEquals("abc", ((JsonObject)po.getValue()).get("ref").getAsString());
+        
+        pr.remove("meta");
+        pr.replace("members", members);
+        
+        json = serializer.toJson(pr);
+        deserPr = serializer.fromJson(json, PatchRequest.class);
+        assertEquals(3, deserPr.getOperations().size());
     }
 }
