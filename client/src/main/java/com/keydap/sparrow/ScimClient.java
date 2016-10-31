@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.net.ssl.SSLContext;
+
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
@@ -45,6 +47,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
+import com.keydap.sparrow.auth.Authenticator;
+
 import static org.apache.http.HttpStatus.*;
 
 /**
@@ -58,9 +62,8 @@ public class ScimClient {
     /** the base API URL of the SCIM server e.g https://sparrow.keydap.com/v2 */
     private String baseApiUrl;
 
-    // private String username;
-    // private String password;
-
+    private Authenticator authenticator;
+    
     private HttpClientBuilder builder;
 
     private CloseableHttpClient client;
@@ -86,10 +89,43 @@ public class ScimClient {
      * @param baseApiUrl the API URL of the SCIM server
      */
     public ScimClient(String baseApiUrl) {
-        this.baseApiUrl = baseApiUrl;
-        builder = HttpClientBuilder.create().useSystemProperties();
-        client = builder.build();
+        this(baseApiUrl, null);
+    }
 
+    public ScimClient(String baseApiUrl, Authenticator authenticator) {
+        this(baseApiUrl, authenticator, null);
+    }
+
+    public ScimClient(String baseApiUrl, Authenticator authenticator, SSLContext sslCtx) {
+        this.baseApiUrl = baseApiUrl;
+        
+        // if authenticator is not given then use a null authenticator
+        if(authenticator == null) {
+            authenticator = new Authenticator() {
+                public void saveHeaders(HttpResponse resp) {
+                }
+                
+                public void authenticate(String baseUrl, CloseableHttpClient client)
+                        throws Exception {
+                }
+                
+                public void addHeaders(HttpUriRequest req) {
+                }
+            };
+        }
+        
+        this.authenticator = authenticator;
+        
+        boolean isHttps = baseApiUrl.toLowerCase().startsWith("https");
+        
+        builder = HttpClientBuilder.create().useSystemProperties();
+        
+        if(isHttps) {
+            builder.setSSLContext(sslCtx);
+        }
+        
+        client = builder.build();
+        
         GsonBuilder gb = new GsonBuilder();
         
         Type dt = new TypeToken<Date>(){}.getType();
@@ -146,7 +182,11 @@ public class ScimClient {
             }
         }
     }
-
+    
+    public void authenticate() throws Exception {
+        authenticator.authenticate(baseApiUrl, client);
+    }
+    
     public <T> Response<T> addResource(T rs) {
         Class resClas = rs.getClass();
         String endpoint = getEndpoint(resClas);
@@ -385,8 +425,10 @@ public class ScimClient {
     public <T> Response<T> sendRawRequest(HttpUriRequest req, Class<T> resClas) {
         Response<T> result = new Response<T>();
         try {
+            authenticator.addHeaders(req);
             LOG.debug("Sending {} request to {}", req.getMethod(), req.getURI());
             HttpResponse resp = client.execute(req);
+            authenticator.saveHeaders(resp);
             StatusLine sl = resp.getStatusLine();
             int code = sl.getStatusCode();
             
