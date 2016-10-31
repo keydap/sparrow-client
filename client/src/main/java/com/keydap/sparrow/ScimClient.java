@@ -326,7 +326,9 @@ public class ScimClient {
         SearchResponse<T> result = new SearchResponse<T>();
         try {
             LOG.debug("Sending {} request to {}", req.getMethod(), req.getURI());
+            authenticator.addHeaders(req);
             HttpResponse resp = client.execute(req);
+            authenticator.saveHeaders(resp);
             StatusLine sl = resp.getStatusLine();
             int code = sl.getStatusCode();
             
