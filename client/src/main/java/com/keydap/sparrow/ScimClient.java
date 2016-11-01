@@ -6,6 +6,10 @@
  */
 package com.keydap.sparrow;
 
+import static org.apache.http.HttpStatus.SC_CREATED;
+import static org.apache.http.HttpStatus.SC_NO_CONTENT;
+import static org.apache.http.HttpStatus.SC_OK;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.net.URLEncoder;
@@ -30,7 +34,6 @@ import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -48,8 +51,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.keydap.sparrow.auth.Authenticator;
-
-import static org.apache.http.HttpStatus.*;
 
 /**
  * A client for any SCIM v2.0 compliant server.
@@ -92,6 +93,9 @@ public class ScimClient {
     public static final ContentType MIME_TYPE = ContentType
             .create("application/scim+json", HTTP.DEF_CONTENT_CHARSET);
 
+    /** type for serializing a List of JsonObjects */
+    private static final Type lstJsonObj = new TypeToken<List<JsonObject>>(){}.getType();
+    
     /**
      * Creates an instance of the client
      * 
@@ -415,6 +419,72 @@ public class ScimClient {
         }
         
         return searchResource(sr, resClas);
+    }
+
+    /**
+     * Fetches the service provider's configuration.
+     * 
+     * @return
+     */
+    public Response<JsonObject> getSrvProvConf() {
+        HttpGet get = new HttpGet(baseApiUrl + "/ServiceProviderConfig");
+        return sendRawRequest(get, JsonObject.class);
+    }
+
+    /**
+     * Fetches all resourcetypes supported by the service provider.
+     * 
+     * @return
+     */
+    public Response<List<JsonObject>> getResTypes() {
+        HttpGet get = new HttpGet(baseApiUrl + "/ResourceTypes");
+        Response resp = sendRawRequest(get, JsonElement.class);
+        JsonElement je = (JsonElement) resp.getResource();
+        if(je != null) {
+            List<JsonObject> lst = serializer.fromJson(je, lstJsonObj);
+            resp.setResource(lst);
+        }
+        
+        return resp;
+    }
+
+    /**
+     * Fetches the given resourcetype's definition
+     * 
+     * @param name name of the resourcetype to be fetched
+     * @return
+     */
+    public Response<JsonObject> getResType(String name) {
+        HttpGet get = new HttpGet(baseApiUrl + "/ResourceTypes/" + name);
+        return sendRawRequest(get, JsonObject.class);
+    }
+
+    /**
+     * Fetches all schemas supported by the service provider.
+     * 
+     * @return
+     */
+    public Response<List<JsonObject>> getSchemas() {
+        HttpGet get = new HttpGet(baseApiUrl + "/Schemas");
+        Response resp = sendRawRequest(get, JsonElement.class);
+        JsonElement je = (JsonElement) resp.getResource();
+        if(je != null) {
+            List<JsonObject> lst = serializer.fromJson(je, lstJsonObj);
+            resp.setResource(lst);
+        }
+        
+        return resp;
+    }
+
+    /**
+     * Fetches the schema with the given identifier
+     * 
+     * @param id identifier of the schema to be fetched
+     * @return
+     */
+    public Response<JsonObject> getSchema(String id) {
+        HttpGet get = new HttpGet(baseApiUrl + "/Schemas/" + id);
+        return sendRawRequest(get, JsonObject.class);
     }
 
     private <T> SearchResponse<T> _searchResource(SearchRequest sr, String endpoint, Class<T> resClas) {
