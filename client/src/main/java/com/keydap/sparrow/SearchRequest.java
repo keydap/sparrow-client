@@ -9,7 +9,8 @@ package com.keydap.sparrow;
 import java.util.Arrays;
 
 /**
- *
+ * SCIM v2 search request
+ * 
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
 public class SearchRequest {

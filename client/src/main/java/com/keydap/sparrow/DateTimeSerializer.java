@@ -21,7 +21,8 @@ import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 
 /**
- *
+ * RFC3339 date serializer
+ * 
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
 public class DateTimeSerializer implements JsonSerializer<Date>, JsonDeserializer<Date> {

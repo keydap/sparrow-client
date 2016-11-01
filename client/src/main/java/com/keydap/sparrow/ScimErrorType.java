@@ -7,7 +7,8 @@
 package com.keydap.sparrow;
 
 /**
- *
+ * SCIM v2 error types
+ * 
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
 public enum ScimErrorType {

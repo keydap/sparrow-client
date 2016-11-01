@@ -7,7 +7,8 @@
 package com.keydap.sparrow;
 
 /**
- *
+ * SCIM v2 error representation
+ * 
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
 public class Error {

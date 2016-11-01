@@ -7,7 +7,8 @@
 package com.keydap.sparrow;
 
 /**
- *
+ * Enumeration of various SCIM v2 error codes
+ * 
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
 public enum Status {

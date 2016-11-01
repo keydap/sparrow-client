@@ -9,7 +9,8 @@ package com.keydap.sparrow;
 import java.util.List;
 
 /**
- *
+ * Holder for search response
+ * 
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
 public class SearchResponse<T> extends Response<T> {

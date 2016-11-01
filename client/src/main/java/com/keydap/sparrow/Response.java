@@ -9,7 +9,8 @@ package com.keydap.sparrow;
 import org.apache.http.Header;
 
 /**
- *
+ * Holder for the response received after executing a request
+ * 
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
 public class Response<T> {

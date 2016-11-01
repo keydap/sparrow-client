@@ -14,7 +14,7 @@ import com.google.gson.JsonParser;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * SCIM Patch request
+ * SCIM v2 Patch request
  * 
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */

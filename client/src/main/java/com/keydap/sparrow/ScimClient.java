@@ -61,25 +61,34 @@ public class ScimClient {
 
     /** the base API URL of the SCIM server e.g https://sparrow.keydap.com/v2 */
     private String baseApiUrl;
-
+    
+    /** the authenticator instance */
     private Authenticator authenticator;
     
+    /** HTTP client builder */
     private HttpClientBuilder builder;
 
+    /** the main HTTP client instance used for communicating with the server */
     private CloseableHttpClient client;
 
+    /** SCIM entity serializer and deserializer */
     private Gson serializer;
 
+    /** the logger instance */
     private static final Logger LOG = LoggerFactory.getLogger(ScimClient.class);
     
+    /** map holding <endpoint-entityClass> tuples */
     private Map<String, Class<?>> endpointClassMap = new HashMap<String, Class<?>>();
 
+    /** map holding <schemaId-entityClass> tuples */
     private Map<String, Class<?>> schemaIdClassMap = new HashMap<String, Class<?>>();
 
+    /** map holding <entityClass-endpoint> tuples */
     private Map<Class<?>, String> classEndpointMap = new HashMap<Class<?>, String>();
 
     private Map<String, Set<Field>> endpointExtFieldMap = new HashMap<String, Set<Field>>();
 
+    /** the MIME type for application/scim+json content */
     public static final ContentType MIME_TYPE = ContentType
             .create("application/scim+json", HTTP.DEF_CONTENT_CHARSET);
 
@@ -92,10 +101,23 @@ public class ScimClient {
         this(baseApiUrl, null);
     }
 
+    /**
+     * Creates an instance of the client
+     * 
+     * @param baseApiUrl the API URL of the SCIM server
+     * @param authenticator authenticator instance, optional
+     */
     public ScimClient(String baseApiUrl, Authenticator authenticator) {
         this(baseApiUrl, authenticator, null);
     }
 
+    /**
+     * Creates an instance of the client
+     * 
+     * @param baseApiUrl the API URL of the SCIM server
+     * @param authenticator authenticator instance, optional
+     * @param sslCtx the SSL context, mandatory only when the service is accessible over HTTPS
+     */
     public ScimClient(String baseApiUrl, Authenticator authenticator, SSLContext sslCtx) {
         this.baseApiUrl = baseApiUrl;
         
@@ -183,10 +205,21 @@ public class ScimClient {
         }
     }
     
+    /**
+     * Performs authentication using the authenticator
+     * 
+     * @throws Exception when the authenticator throws any exception
+     */
     public void authenticate() throws Exception {
         authenticator.authenticate(baseApiUrl, client);
     }
     
+    /**
+     * Adds the given resource
+     * 
+     * @param rs the resource
+     * @return
+     */
     public <T> Response<T> addResource(T rs) {
         Class resClas = rs.getClass();
         String endpoint = getEndpoint(resClas);
@@ -195,6 +228,13 @@ public class ScimClient {
         return sendRawRequest(post, resClas);
     }
 
+    /**
+     * Replaces the given resource
+     * 
+     * @param id identifier of the resource to be replaced
+     * @param rs the new resource with which old one will be replaced
+     * @return
+     */
     public <T> Response<T> replaceResource(String id, T rs) {
         Class resClas = rs.getClass();
         String endpoint = getEndpoint(resClas);
@@ -203,6 +243,11 @@ public class ScimClient {
         return sendRawRequest(put, resClas);
     }
 
+    /**
+     * Modifies the selected resource
+     * @param pr the modify(a.k.a patch) request
+     * @return
+     */
     public <T> Response<T> patchResource(PatchRequest pr) {
         Class resClas = pr.getResClass();
         String endpoint = getEndpoint(resClas);
@@ -226,6 +271,13 @@ public class ScimClient {
         return sendRawRequest(patch, resClas);
     }
 
+    /**
+     * Deletes the selected resource
+     * 
+     * @param id identifier of the resource to be deleted
+     * @param resourceType the type of the resource that is to be deleted
+     * @return
+     */
     public Response<Boolean> deleteResource(String id, Class resourceType) {
         String endpoint = getEndpoint(resourceType);
         HttpDelete delete = new HttpDelete(baseApiUrl + endpoint + "/" + id);
@@ -239,12 +291,25 @@ public class ScimClient {
         return resp;
     }
     
+    /**
+     * Fetches the resource specified by the given identifier
+     * 
+     * @param id identifier of the resource
+     * @param resClas the type of the resource to be fetched
+     * @return
+     */
     public <T> Response<T> getResource(String id, Class<T> resClas) {
         String endpoint = getEndpoint(resClas);
         HttpGet get = new HttpGet(baseApiUrl + endpoint + "/" + id);
         return sendRawRequest(get, resClas);
     }
 
+    /**
+     * Fetches all the resources of the specified type
+     * 
+     * @param resClas the type of the resources to be fetched
+     * @return
+     */
     public <T> SearchResponse<T> searchResource(Class<T> resClas) {
         String endpoint = getEndpoint(resClas);
         
@@ -255,6 +320,13 @@ public class ScimClient {
         return sendSearchRequest(get, resClas);
     }
     
+    /**
+     * Fetches all the resources of the specified type matching the given search filter
+     * 
+     * @param filter the search filer
+     * @param resClas the type of the resources to be searched
+     * @return
+     */
     public <T> SearchResponse<T> searchResource(String filter, Class<T> resClas) {
         String endpoint = getEndpoint(resClas);
         
@@ -275,32 +347,55 @@ public class ScimClient {
         return sendSearchRequest(get, resClas);   
     }
     
+    /**
+     * Fetches all the resources of the specified type matching the given search filter.
+     * The resources will contain only the given set of attributes besides the mandatory
+     * attributes, remaining attributes will not be received.
+     * 
+     * @param filter the search filer
+     * @param resClas the type of the resources to be searched
+     * @param attributes the attributes that the fetched resources should contain (besides the mandatory attributes)
+     * @return
+     */
     public <T> SearchResponse<T> searchResource(String filter, Class<T> resClas, String... attributes) {
-        return searchResource(filter, resClas, attributes, true);
+        return searchResource(filter, resClas, true, attributes);
     }
     
+    /**
+     * Fetches all resources of the given resourcetype based on the given search request.
+     * 
+     * @param sr the search request
+     * @param resClas the type of the resources to be searched
+     * @return
+     */
     public <T> SearchResponse<T> searchResource(SearchRequest sr, Class<T> resClas) {
         String endpoint = getEndpoint(resClas);
         return _searchResource(sr, endpoint, resClas);
     }
     
+    /**
+     * Fetches all resources based on the criteria present in the given search request
+     * 
+     * @param sr the search request
+     * @return
+     */
     public SearchResponse<Object> searchAll(SearchRequest sr) {
         return _searchResource(sr, "", null);
     }
     
-    private <T> SearchResponse<T> _searchResource(SearchRequest sr, String endpoint, Class<T> resClas) {
-        StringBuilder url = new StringBuilder(baseApiUrl);
-        url.append(endpoint).append("/.search");
-        
-        HttpPost post = new HttpPost(url.toString());
-        String json = serializer.toJson(sr);
-        StringEntity entity = new StringEntity(json, MIME_TYPE);
-        post.setEntity(entity);
-
-        return sendSearchRequest(post, resClas);        
-    }
-    
-    public <T> SearchResponse<T> searchResource(String filter, Class<T> resClas, String[] attributes, boolean include) {
+    /**
+     * Fetches all the resources of the specified type matching the given search filter.
+     * Based on the include flag value the given attributes may be included or excluded.
+     * The mandatory attributes will always be returned irrespective of the value of the
+     * include flag's value.
+     * 
+     * @param filter the search filer
+     * @param resClas the type of the resources to be searched
+     * @param include flag that determines inclusion or exclusion of the given attributes
+     * @param attributes the attributes that must be included or excluded
+     * @return
+     */
+    public <T> SearchResponse<T> searchResource(String filter, Class<T> resClas, boolean include, String... attributes) {
         SearchRequest sr = new SearchRequest();
         sr.setFilter(filter);
         
@@ -322,6 +417,18 @@ public class ScimClient {
         return searchResource(sr, resClas);
     }
 
+    private <T> SearchResponse<T> _searchResource(SearchRequest sr, String endpoint, Class<T> resClas) {
+        StringBuilder url = new StringBuilder(baseApiUrl);
+        url.append(endpoint).append("/.search");
+        
+        HttpPost post = new HttpPost(url.toString());
+        String json = serializer.toJson(sr);
+        StringEntity entity = new StringEntity(json, MIME_TYPE);
+        post.setEntity(entity);
+
+        return sendSearchRequest(post, resClas);        
+    }
+    
     private <T> SearchResponse<T> sendSearchRequest(HttpUriRequest req, Class<T> resClas) {
         SearchResponse<T> result = new SearchResponse<T>();
         try {
@@ -424,6 +531,13 @@ public class ScimClient {
         return obj;
     }
     
+    /**
+     * Sends the given request to the server
+     * 
+     * @param req the HTTP request
+     * @param resClas class of the resourcetype
+     * @return
+     */
     public <T> Response<T> sendRawRequest(HttpUriRequest req, Class<T> resClas) {
         Response<T> result = new Response<T>();
         try {
@@ -476,6 +590,12 @@ public class ScimClient {
         req.setEntity(entity);
     }
 
+    /**
+     * Serializes the given resourcetype instance
+     * 
+     * @param rs resourcetype's instance
+     * @return
+     */
     public <T> JsonObject serialize(T rs) {
         JsonObject json = (JsonObject) serializer.toJsonTree(rs);
         
