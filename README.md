@@ -2,15 +2,6 @@
 This is a client for any [SCIM v2](http://www.simplecloud.info) compliant server implementation.
 This was primarily implemented to support the Sparrow Cloud Identity Server which is based on SCIM v2 protocol.
 
-## Building
-
-```
-git clone https://github.com/keydap/sparrow-client.git
-cd sparrow-client
-mvn clean install
-
-```
-
 ## Features
 1. Automatic generation of model classes for resources from the resourcetypes and schema
 2. Support for custom(when auto generation is not required) resource classes with __@Resource__ and
@@ -19,6 +10,14 @@ mvn clean install
    operation, which requires individual operation data to be  hand written in JSON)
 4. Flexible authenitcation mechanism using Authenticator interface
  
+ 
+## Building
+```
+git clone https://github.com/keydap/sparrow-client.git
+cd sparrow-client
+mvn clean install
+```
+
 ## Usage
 
 #### Adding the client 
