@@ -76,9 +76,11 @@ public  class User
       ...
 ```
 #### Instantiate the client
-The client can be instantiated with or without an Authenticator. An authenticator allows in supplying the necessary credentials
-to authorize each request.
+The client can be instantiated with or without an Authenticator. An authenticator allows us to supply necessary credentials
+required to authenticate first and later to authorize each request. The Authenticator implementation depends on the target
+server the client is connecting to.
 ```java
+// the below example shows an authenticator used for connecting to Sparrow server
 Authenticator authenticator = new SparrowAuthenticator("admin", "example.COM", "secret");
 client = new ScimClient("http://localhost:7090/v2", authenticator);
 client.authenticate();
