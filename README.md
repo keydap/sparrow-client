@@ -11,6 +11,14 @@ mvn clean install
 
 ```
 
+## Features
+1. Automatic generation of model classes for resources from the resourcetypes and schema
+2. Support for custom(when auto generation is not required) resource classes with __@Resource__ and
+   __@Extension__ annotations
+3. No need to construct JSON payloads while sending requests (except in the case of PATCH 
+   operation, which requires individual operation data to be  hand written in JSON)
+4. Flexible authenitcation mechanism using Authenticator interface
+ 
 ## Usage
 
 #### Adding the client 
