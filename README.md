@@ -86,73 +86,81 @@ client.register(User.class, Group.class, Device.class);
 
 #### SCIM v2 API
 1. Add a new resource
-```java
-User u = new User();
-u.setUserName("bjensen");
-Name name = new Name();
-name.setFamilyName("Jensen");
-name.setFormatted("Ben Jensen");
-name.setGivenName("Ben");
-name.setHonorificPrefix("Mr.");
-u.setName(name);
+    ```java
+    User u = new User();
+    u.setUserName("bjensen");
+    Name name = new Name();
+    name.setFamilyName("Jensen");
+    name.setFormatted("Ben Jensen");
+    name.setGivenName("Ben");
+    name.setHonorificPrefix("Mr.");
+    u.setName(name);
 
-Email e = new Email();
-e.setValue("bjensen@example.com");
-e.setPrimary(true);
-e.setType("home");
-u.setEmails(Collections.singletonList(e));
- 
-u.setPassword("secret001");
- 
-Response<User> resp = client.addResource(u);
-```
+    Email e = new Email();
+    e.setValue("bjensen@example.com");
+    e.setPrimary(true);
+    e.setType("home");
+    u.setEmails(Collections.singletonList(e));
+
+    u.setPassword("secret001");
+
+    Response<User> resp = client.addResource(u);
+    ```
 2. Getting a resource
-```java
-Response<User> resp = client.getResource("value-of-the-id-attribute-of-the-resource", User.class)
-```
+
+    ```java
+    Response<User> resp = client.getResource("value-of-the-id-attribute-of-the-resource", User.class)
+    ```
 3. Deleting a resource
-```java
-// deleting a User resource 
-Response<Boolean> resp = client.deleteResource("value-of-the-id-attribute-of-the-resource", User.class);
-```
+
+    ```java
+    // deleting a User resource 
+    Response<Boolean> resp = client.deleteResource("value-of-the-id-attribute-of-the-resource", User.class);
+    ```
 4. Replace a resource
-```java
-// replacing a User resource
-Response<User> resp = client.replaceResource("value-of-the-id-attribute-of-the-resource", User.class)
-```
+
+    ```java
+    // replacing a User resource
+    Response<User> resp = client.replaceResource("value-of-the-id-attribute-of-the-resource", User.class)
+    ```
 5. Patching a resource
-```java
-PatchRequest pr = new PatchRequest(thermostat.getId(), Device.class);
-// feed the attribute and values in JSON format 
-pr.add("location", "{\"latitude\": \"1.1\", \"longitude\": \"2.2\", \"desc\": \"device location\"}");
-// call setAttributes if a sub-set of attributes are needed, the parameter can contain a comma separated attribute names
-pr.setAttributes("location");
 
-Response<Device> resp = client.patchResource(pr);
-```
+    ```java
+    PatchRequest pr = new PatchRequest(thermostat.getId(), Device.class);
+    // feed the attribute and values in JSON format 
+    pr.add("location", "{\"latitude\": \"1.1\", \"longitude\": \"2.2\", \"desc\": \"device location\"}");
+    // call setAttributes if a sub-set of attributes are needed, the parameter can contain a comma separated attribute names
+    pr.setAttributes("location");
+
+    Response<Device> resp = client.patchResource(pr);
+    ```
 6. Searching for resources (uses GET method)
-```java
-SearchResponse<User> resp = client.searchResource("username eq \"elecharny\"", User.class);
-```
+
+    ```java
+    SearchResponse<User> resp = client.searchResource("username eq \"elecharny\"", User.class);
+    ```
 7. Searching for resources using SearchRequest (uses POST method)
-```java
-SearchRequest req = new SearchRequest();
-req.setFilter("emails.type eq \"work\"");
-req.setAttributes("username");
 
-SearchResponse<User> resp = client.searchResource(req, User.class);
-// now access the resources
-List<User> received = resp.getResources();
-```
+    ```java
+    SearchRequest req = new SearchRequest();
+    req.setFilter("emails.type eq \"work\"");
+    req.setAttributes("username");
+
+    SearchResponse<User> resp = client.searchResource(req, User.class);
+    // now access the resources
+    List<User> received = resp.getResources();
+    ```
 8. Searching for all resources (uses POST method)
-```java
-SearchRequest req = new SearchRequest();
-req.setFilter("id pr");
 
-SearchResponse<Object> resp = client.searchAll(req);
-// now access the resources
-List<User> received = resp.getResources();
-```
+    ```java
+    SearchRequest req = new SearchRequest();
+    req.setFilter("id pr");
+
+    SearchResponse<Object> resp = client.searchAll(req);
+    // now access the resources
+    List<User> received = resp.getResources();
+    ```
+    
 ## License
 Sparrow-client is released under [ASL v2](https://github.com/keydap/sparrow-client/blob/master/LICENSE)
 ```
