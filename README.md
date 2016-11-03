@@ -20,7 +20,7 @@ mvn clean install
 
 ## Usage
 
-#### Adding the client 
+#### Adding the client library
 If you are using Maven then add the below dependency in your pom.xml
 ```xml
 <dependency>
