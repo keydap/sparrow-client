@@ -37,7 +37,7 @@ public class JsonToJava extends AbstractMojo {
     private String baseUrl;
 
     @Parameter
-    private boolean enabled;
+    private boolean skipGeneration;
 
     @Parameter(defaultValue = "${project}")
     private MavenProject project;
@@ -50,8 +50,8 @@ public class JsonToJava extends AbstractMojo {
     public void execute() throws MojoExecutionException, MojoFailureException {
         Log log = getLog();
 
-        if(!enabled) {
-            log.info("json2java plugin is disabled, not generating resource classes.");
+        if(skipGeneration) {
+            log.info("Skipping generation of resource classes");
             return;
         }
 
