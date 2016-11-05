@@ -24,6 +24,7 @@ import java.util.Set;
 
 import javax.net.ssl.SSLContext;
 
+import org.apache.http.Consts;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
@@ -38,7 +39,6 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,7 +91,7 @@ public class ScimClient {
 
     /** the MIME type for application/scim+json content */
     public static final ContentType MIME_TYPE = ContentType
-            .create("application/scim+json", HTTP.DEF_CONTENT_CHARSET);
+            .create("application/scim+json", Consts.UTF_8);
 
     /** type for serializing a List of JsonObjects */
     private static final Type lstJsonObj = new TypeToken<List<JsonObject>>(){}.getType();
