@@ -47,6 +47,8 @@ SCIM service provider. The sample configuration of this plugin is shown below:
     <configuration>
         <generatePackage>com.keydap.sparrow.scim</generatePackage>
         <baseUrl>http://localhost:7090/v2</baseUrl>
+        <!-- use the below option to skip generation of classes -->
+        <!--<skipGeneration>true</skipGeneration>-->
     </configuration>
 </plugin>
 ```  
