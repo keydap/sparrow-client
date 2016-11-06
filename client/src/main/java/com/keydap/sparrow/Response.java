@@ -61,8 +61,16 @@ public class Response<T> {
     }
 
     public String getLocation() {
+        return getHeader("Location");
+    }
+
+    public String getETag() {
+        return getHeader("Etag"); // Go is sending the value in canonical format
+    }
+
+    public String getHeader(String name) {
         for(Header h : headers) {
-            if(h.getName().equals("Location")) {
+            if(h.getName().equals(name)) {
                 return h.getValue();
             }
         }

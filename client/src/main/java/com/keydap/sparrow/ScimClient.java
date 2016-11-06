@@ -240,9 +240,22 @@ public class ScimClient {
      * @return
      */
     public <T> Response<T> replaceResource(String id, T rs) {
+        return replaceResource(id, rs, null);
+    }
+    
+    /**
+     * Replaces the given resource 
+     * 
+     * @param id identifier of the resource to be replaced
+     * @param rs the new resource with which old one will be replaced
+     * @param ifNoneMatch the value to be set for If-None-Match header
+     * @return
+     */
+    public <T> Response<T> replaceResource(String id, T rs, String ifNoneMatch) {
         Class resClas = rs.getClass();
         String endpoint = getEndpoint(resClas);
         HttpPut put = new HttpPut(baseApiUrl + endpoint + "/" + id);
+        setIfNoneMatch(put, ifNoneMatch);
         setBody(put, rs);
         return sendRawRequest(put, resClas);
     }
@@ -261,7 +274,7 @@ public class ScimClient {
         if(pr.getAttributes() != null) {
             String encoded;
             try {
-                encoded = URLEncoder.encode(pr.getAttributes(), "utf-8");
+                encoded = URLEncoder.encode(pr.getAttributes(), Consts.UTF_8.name());
             }
             catch(Exception e) {
                 throw new RuntimeException(e);
@@ -271,6 +284,7 @@ public class ScimClient {
         }
         
         HttpPatch patch = new HttpPatch(url);
+        setIfNoneMatch(patch, pr.getIfNoneMatch());
         setBody(patch, pr);
         return sendRawRequest(patch, resClas);
     }
@@ -700,5 +714,11 @@ public class ScimClient {
         }
         
         return ep;
+    }
+    
+    private void setIfNoneMatch(HttpEntityEnclosingRequestBase req, String ifNoneMatch) {
+        if(ifNoneMatch != null) {
+            req.setHeader("If-None-Match", ifNoneMatch);
+        }
     }
 }
