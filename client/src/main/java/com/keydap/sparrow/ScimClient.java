@@ -8,6 +8,7 @@ package com.keydap.sparrow;
 
 import static org.apache.http.HttpStatus.SC_CREATED;
 import static org.apache.http.HttpStatus.SC_NO_CONTENT;
+import static org.apache.http.HttpStatus.SC_NOT_MODIFIED;
 import static org.apache.http.HttpStatus.SC_OK;
 
 import java.lang.reflect.Field;
@@ -34,6 +35,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
@@ -95,6 +97,8 @@ public class ScimClient {
 
     /** type for serializing a List of JsonObjects */
     private static final Type lstJsonObj = new TypeToken<List<JsonObject>>(){}.getType();
+    
+    private JsonParser parser = new JsonParser();
     
     /**
      * Creates an instance of the client
@@ -317,8 +321,76 @@ public class ScimClient {
      * @return
      */
     public <T> Response<T> getResource(String id, Class<T> resClas) {
+        return getResource(id, null, resClas);
+    }
+    
+    /**
+     * Fetches the resource specified by the given identifier.
+     * If the version of the resource matched with the value of 
+     * given value of ifNoneMatch parameter then the status result
+     * 304 (NOT_MODIFIED) will be returned withoud any body
+     * 
+     * @param id identifier of the resource
+     * @param ifNoneMatch the value of the resource's version
+     * @param resClas the type of the resource to be fetched
+     * @return
+     */
+    public <T> Response<T> getResource(String id, String ifNoneMatch, Class<T> resClas) {
+        return getResource(id, ifNoneMatch, resClas, false, null);
+    }
+    
+    /**
+     * Same as {@link #getResource(String, String, Class, boolean, String...)} 
+     * but without the If-None-Match header value
+     * 
+     * @see #getResource(String, String, Class, boolean, String...)
+     */
+    public <T> Response<T> getResource(String id, Class<T> resClas, boolean include, String... attributes) {
+        return getResource(id, null, resClas, include, attributes);
+    }
+    
+    /**
+     * Fetches the resource specified by the given identifier.
+     * If the version of the resource matched with the value of 
+     * given value of ifNoneMatch parameter then the status result
+     * 304 (NOT_MODIFIED) will be returned withoud any body.
+     * 
+     * The requested resource's attributes will be filtered based on the
+     * specified attributes and the include flag.
+     * 
+     * @param id identifier of the resource
+     * @param ifNoneMatch the value of the resource's version
+     * @param resClas the type of the resource to be fetched
+     * @param include the flag to determine if the attributes specified 
+     *                should be included or excluded from the resource
+     * @param attributes the attribute names
+     * @return
+     */
+    public <T> Response<T> getResource(String id, String ifNoneMatch, Class<T> resClas, boolean include, String... attributes) {
         String endpoint = getEndpoint(resClas);
-        HttpGet get = new HttpGet(baseApiUrl + endpoint + "/" + id);
+        StringBuilder sb = new StringBuilder(baseApiUrl + endpoint + "/" + id);
+        if(attributes != null) {
+            if(include) {
+                sb.append("?attributes=");
+            } else {
+                sb.append("?excludedAttributes=");
+            }
+            
+            int i=0;
+            for(; i < attributes.length - 1; i++) {
+                String attr = attributes[i].trim();
+                if(attr.length() > 0 ) {
+                    sb.append(attr).append(',');
+                }
+            }
+            String attr = attributes[i].trim();
+            if(attr.length() > 0 ) {
+                sb.append(attr);
+            }
+        }
+        
+        HttpGet get = new HttpGet(sb.toString());
+        setIfNoneMatch(get, ifNoneMatch);
         return sendRawRequest(get, resClas);
     }
 
@@ -642,9 +714,9 @@ public class ScimClient {
             result.setHttpCode(code);
             
             // if it is success there will be response body to read
-            if (code == SC_OK || code == SC_CREATED) {
-                if(json != null) { // DELETE will have no response body, so check for null
-                    T t = serializer.fromJson(json, resClas);
+            if (code == SC_OK || code == SC_CREATED || code == SC_NOT_MODIFIED) {
+                if(json != null) { // some responses have no body, so check for null
+                    T t = unmarshal(json, resClas);
                     result.setResource(t);
                 }
             } else {
@@ -716,9 +788,28 @@ public class ScimClient {
         return ep;
     }
     
-    private void setIfNoneMatch(HttpEntityEnclosingRequestBase req, String ifNoneMatch) {
+    private void setIfNoneMatch(HttpRequestBase req, String ifNoneMatch) {
         if(ifNoneMatch != null) {
             req.setHeader("If-None-Match", ifNoneMatch);
         }
+    }
+    
+    private <T> T unmarshal(String json, Class<T> resClass) throws Exception {
+        JsonObject obj = (JsonObject) parser.parse(json);
+        T t = serializer.fromJson(obj, resClass);
+        Set<Field> extFields = endpointExtFieldMap.get(classEndpointMap.get(resClass));
+        if (extFields != null) {
+            for (Field f : extFields) {
+                Extension ext = f.getAnnotation(Extension.class);
+                String schemaId = ext.value();
+                JsonElement je = obj.get(schemaId);
+                if(je != null) {
+                    Object extObj = serializer.fromJson(je, f.getType());
+                    f.set(t, extObj);
+                }
+            }
+        }
+        
+        return t;
     }
 }
