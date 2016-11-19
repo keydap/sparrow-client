@@ -635,9 +635,9 @@ public class ScimClient {
                         while(itr.hasNext()) {
                             JsonObject r = (JsonObject) itr.next();
                             if (resClas != null) {
-                                resources.add(serializer.fromJson(r, resClas));
+                                resources.add(unmarshal(r, resClas));
                             } else {
-                                T rsObj = deserialize(r);
+                                T rsObj = unmarshal(r);
                                 if(rsObj == null) {
                                     LOG.warn("No resgistered resource class found to deserialize the resource data {}", r);
                                 } else {
@@ -669,7 +669,7 @@ public class ScimClient {
         return result;
     }
 
-    private <T> T deserialize(JsonObject json) {
+    private <T> T unmarshal(JsonObject json) throws Exception {
         JsonArray schemas = json.get("schemas").getAsJsonArray();
         Iterator<JsonElement> itr = schemas.iterator();
         
@@ -679,7 +679,7 @@ public class ScimClient {
             String id = itr.next().getAsString();
             Class<?> rc = schemaIdClassMap.get(id);
             if(rc != null) {
-                obj = (T) serializer.fromJson(json, rc);
+                obj = (T) unmarshal(json, rc);
                 break;
             }
         }
@@ -795,14 +795,22 @@ public class ScimClient {
     }
     
     private <T> T unmarshal(String json, Class<T> resClass) throws Exception {
-        JsonObject obj = (JsonObject) parser.parse(json);
-        T t = serializer.fromJson(obj, resClass);
+        JsonElement je = parser.parse(json);
+        if(!(je instanceof JsonObject)) {
+            return (T) je;
+        }
+        
+        return unmarshal((JsonObject) je, resClass);
+    }
+    
+    private <T> T unmarshal(JsonObject jsonObj, Class<T> resClass) throws Exception {
+        T t = serializer.fromJson(jsonObj, resClass);
         Set<Field> extFields = endpointExtFieldMap.get(classEndpointMap.get(resClass));
         if (extFields != null) {
             for (Field f : extFields) {
                 Extension ext = f.getAnnotation(Extension.class);
                 String schemaId = ext.value();
-                JsonElement je = obj.get(schemaId);
+                JsonElement je = jsonObj.get(schemaId);
                 if(je != null) {
                     Object extObj = serializer.fromJson(je, f.getType());
                     f.set(t, extObj);
