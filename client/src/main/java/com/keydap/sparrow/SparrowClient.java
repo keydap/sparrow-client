@@ -60,7 +60,7 @@ import com.keydap.sparrow.auth.Authenticator;
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
 @SuppressWarnings("all")
-public class ScimClient {
+public class SparrowClient {
 
     /** the base API URL of the SCIM server e.g https://sparrow.keydap.com/v2 */
     private String baseApiUrl;
@@ -78,7 +78,7 @@ public class ScimClient {
     private Gson serializer;
 
     /** the logger instance */
-    private static final Logger LOG = LoggerFactory.getLogger(ScimClient.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SparrowClient.class);
     
     /** map holding <endpoint-entityClass> tuples */
     private Map<String, Class<?>> endpointClassMap = new HashMap<String, Class<?>>();
@@ -105,7 +105,7 @@ public class ScimClient {
      * 
      * @param baseApiUrl the API URL of the SCIM server
      */
-    public ScimClient(String baseApiUrl) {
+    public SparrowClient(String baseApiUrl) {
         this(baseApiUrl, null);
     }
 
@@ -115,7 +115,7 @@ public class ScimClient {
      * @param baseApiUrl the API URL of the SCIM server
      * @param authenticator authenticator instance, optional
      */
-    public ScimClient(String baseApiUrl, Authenticator authenticator) {
+    public SparrowClient(String baseApiUrl, Authenticator authenticator) {
         this(baseApiUrl, authenticator, null);
     }
 
@@ -126,7 +126,7 @@ public class ScimClient {
      * @param authenticator authenticator instance, optional
      * @param sslCtx the SSL context, mandatory only when the service is accessible over HTTPS
      */
-    public ScimClient(String baseApiUrl, Authenticator authenticator, SSLContext sslCtx) {
+    public SparrowClient(String baseApiUrl, Authenticator authenticator, SSLContext sslCtx) {
         this.baseApiUrl = baseApiUrl;
         
         // if authenticator is not given then use a null authenticator
