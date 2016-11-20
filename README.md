@@ -84,7 +84,7 @@ server the client is connecting to.
 ```java
 // the below example shows an authenticator used for connecting to Sparrow server
 Authenticator authenticator = new SparrowAuthenticator("admin", "example.COM", "secret");
-client = new ScimClient("http://localhost:7090/v2", authenticator);
+client = new SparrowClient("http://localhost:7090/v2", authenticator);
 client.authenticate();
 ```
 
