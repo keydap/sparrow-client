@@ -6,6 +6,8 @@
  */
 package com.keydap.sparrow;
 
+import java.util.Arrays;
+
 import org.apache.http.Header;
 
 /**
@@ -76,5 +78,12 @@ public class Response<T> {
         }
         
         return null;
+    }
+
+    @Override
+    public String toString() {
+        return "Response [resource=" + resource + ", httpCode=" + httpCode
+                + ", error=" + error + ", httpBody=" + httpBody + ", headers="
+                + Arrays.toString(headers) + "]";
     }
 }
