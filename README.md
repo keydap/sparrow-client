@@ -173,7 +173,7 @@ client.register(User.class, Group.class, Device.class);
     ```
     
 ## License
-Sparrow-client is released under [ASL v2](https://github.com/keydap/sparrow-client/blob/master/LICENSE)
+Sparrow-client is released under [AL v2](https://github.com/keydap/sparrow-client/blob/master/LICENSE)
 ```
    Copyright 2016 Keydap Software
 
