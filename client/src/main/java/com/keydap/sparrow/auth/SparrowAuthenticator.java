@@ -61,7 +61,7 @@ public class SparrowAuthenticator implements Authenticator {
     
     @Override
     public void authenticate(String baseUrl, CloseableHttpClient client) throws Exception {
-        HttpPost post = new HttpPost(baseUrl + "/token");
+        HttpPost post = new HttpPost(baseUrl + "/directLogin");
         String body = new Gson().toJson(authReq);
         StringEntity entity = new StringEntity(body, ContentType.APPLICATION_JSON);
         post.setEntity(entity);

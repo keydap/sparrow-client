@@ -7,8 +7,8 @@
 package com.keydap.sparrow;
 
 import static org.apache.http.HttpStatus.SC_CREATED;
-import static org.apache.http.HttpStatus.SC_NO_CONTENT;
 import static org.apache.http.HttpStatus.SC_NOT_MODIFIED;
+import static org.apache.http.HttpStatus.SC_NO_CONTENT;
 import static org.apache.http.HttpStatus.SC_OK;
 
 import java.lang.reflect.Field;
@@ -28,6 +28,7 @@ import javax.net.ssl.SSLContext;
 import org.apache.http.Consts;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -64,6 +65,9 @@ public class SparrowClient {
 
     /** the base API URL of the SCIM server e.g https://sparrow.keydap.com/v2 */
     private String baseApiUrl;
+
+    /** the base API URL of the OAuth server e.g https://sparrow.keydap.com/oauth2 */
+    private String baseOauthUrl;
     
     /** the authenticator instance */
     private Authenticator authenticator;
@@ -106,7 +110,18 @@ public class SparrowClient {
      * @param baseApiUrl the API URL of the SCIM server
      */
     public SparrowClient(String baseApiUrl) {
-        this(baseApiUrl, null);
+        this(baseApiUrl, (String)null);
+    }
+
+    /**
+     * Creates an instance of the client
+     * 
+     * @param baseApiUrl the API URL of the SCIM server
+     * @param baseOauthUrl the API URL of the Oauth server
+     */
+    public SparrowClient(String baseApiUrl, String baseOauthUrl) {
+        this(baseApiUrl, baseOauthUrl, null);
+        
     }
 
     /**
@@ -116,7 +131,18 @@ public class SparrowClient {
      * @param authenticator authenticator instance, optional
      */
     public SparrowClient(String baseApiUrl, Authenticator authenticator) {
-        this(baseApiUrl, authenticator, null);
+        this(baseApiUrl, null, authenticator);
+    }
+
+    /**
+     * Creates an instance of the client
+     * 
+     * @param baseApiUrl the API URL of the SCIM server
+     * @param baseOauthUrl the API URL of the Oauth server
+     * @param authenticator authenticator instance, optional
+     */
+    public SparrowClient(String baseApiUrl, String baseOauthUrl, Authenticator authenticator) {
+        this(baseApiUrl, baseOauthUrl, authenticator, null);
     }
 
     /**
@@ -126,8 +152,9 @@ public class SparrowClient {
      * @param authenticator authenticator instance, optional
      * @param sslCtx the SSL context, mandatory only when the service is accessible over HTTPS
      */
-    public SparrowClient(String baseApiUrl, Authenticator authenticator, SSLContext sslCtx) {
+    public SparrowClient(String baseApiUrl, String baseOauthUrl, Authenticator authenticator, SSLContext sslCtx) {
         this.baseApiUrl = baseApiUrl;
+        this.baseOauthUrl = baseOauthUrl;
         
         // if authenticator is not given then use a null authenticator
         if(authenticator == null) {
@@ -777,6 +804,49 @@ public class SparrowClient {
         }
         
         return json;
+    }
+    
+    /**
+     * Registers an application with the details present in the given request
+     * 
+     * @param appReq application request
+     * @return a response containing RegisteredApp if successful or an Error when not
+     */
+    public Response<RegisteredApp> registerApp(RegisterAppRequest appReq) {
+        String template = baseOauthUrl + "/register";
+        
+        HttpPost register = new HttpPost(template);
+        String json = serializer.toJson(appReq);
+        StringEntity entity = new StringEntity(json, MIME_TYPE);
+        register.setEntity(entity);
+        authenticator.addHeaders(register);
+        
+        Response<RegisteredApp> result = new Response<RegisteredApp>();
+        try {
+            HttpResponse regResp = client.execute(register);
+            StatusLine sl = regResp.getStatusLine();
+            
+            result.setHttpCode(sl.getStatusCode());
+            json = EntityUtils.toString(regResp.getEntity());
+            if(sl.getStatusCode() == HttpStatus.SC_CREATED) {
+                RegisteredApp app = serializer.fromJson(json, RegisteredApp.class);
+                result.setResource(app);
+            } 
+            else if (json != null){
+                Error error = serializer.fromJson(json, Error.class);
+                result.setError(error);
+            }
+        }
+        catch(Exception e) {
+            LOG.warn("", e);
+            result.setHttpCode(-1);
+            Error err = new Error();
+            
+            err.setDetail(e.getMessage());
+            result.setError(err);
+        }
+        
+        return result;
     }
     
     private String getEndpoint(Class resClas) {
