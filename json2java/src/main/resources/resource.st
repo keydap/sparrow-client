@@ -17,24 +17,22 @@ import java.io.Serializable;
 @Resource(schemaId="$schemaId$", endpoint="$endpoint$", desc="$resourceDesc$")$\n$
 $endif$
 $if(complexTypeAnnotation)$
-   $complexTypeAnnotation$
-   $\n$
+$complexTypeAnnotation$
+$\n$
 $endif$
 $visibility$ $static$ class $className$ implements Serializable
 {
    $allAttrs: { attr |
    $if(attr.extension)$
-   $\n$
    @Extension("$attr.schema$")
    $endif$
    $if(attr.readOnly)$
-   $\n$
    @ReadOnly
    $endif$
    private $attr.type$ $attr.name$;}; separator="\n"$
    
    $if(package)$
-   // a readonly field that gets populated only while reading reasources
+   // a readonly field that gets populated only while reading resources
    @ReadOnly
    private String[] schemas;
    $endif$
