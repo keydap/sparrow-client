@@ -23,8 +23,8 @@ public class AttributeType {
     
     String schema;
     boolean extension;
-    //boolean required;
-    //boolean caseExact;
+    boolean required;
+    boolean caseExact;
     //String returned;
     //String uniqueness;
 
@@ -35,6 +35,10 @@ public class AttributeType {
      */
     public boolean isReadOnly() {
         return "readOnly".equalsIgnoreCase(mutability);
+    }
+    
+    public boolean isWriteOnly() {
+        return "writeOnly".equalsIgnoreCase(mutability);
     }
 
     public boolean isBoolean() {
@@ -70,5 +74,13 @@ public class AttributeType {
 
     public boolean isExtension() {
         return extension;
+    }
+
+    public boolean isRequired() {
+        return required;
+    }
+
+    public boolean isCaseExact() {
+        return caseExact;
     }
 }

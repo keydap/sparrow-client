@@ -285,7 +285,11 @@ public class JsonToJava extends AbstractMojo {
         at.type = className;
         
         if (at.multiValued) {
+            template.setAttribute("complexTypeAnnotation", "@ComplexType(multival=true)");
             at.type = "List<" + at.type + ">";
+        }
+        else {
+            template.setAttribute("complexTypeAnnotation", "@ComplexType");
         }
         
         for(AttributeType subAt : at.subAttributes) {

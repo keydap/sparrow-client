@@ -2,10 +2,13 @@ $if(package)$
 
 package $package$;
 
+import com.keydap.sparrow.ComplexType;
 import com.keydap.sparrow.Extension;
+import com.keydap.sparrow.ReadOnly;
 import com.keydap.sparrow.Resource;
 import java.util.List;
 import java.util.Date;
+import java.io.Serializable;
 
 /*
  * Generated on $date$ using Keydap Sparrow's json2java plugin 
@@ -13,17 +16,26 @@ import java.util.Date;
 
 @Resource(schemaId="$schemaId$", endpoint="$endpoint$", desc="$resourceDesc$")$\n$
 $endif$
-$visibility$ $static$ class $className$
+$if(complexTypeAnnotation)$
+   $complexTypeAnnotation$
+   $\n$
+$endif$
+$visibility$ $static$ class $className$ implements Serializable
 {
    $allAttrs: { attr |
    $if(attr.extension)$
    $\n$
    @Extension("$attr.schema$")
    $endif$
+   $if(attr.readOnly)$
+   $\n$
+   @ReadOnly
+   $endif$
    private $attr.type$ $attr.name$;}; separator="\n"$
    
    $if(package)$
    // a readonly field that gets populated only while reading reasources
+   @ReadOnly
    private String[] schemas;
    $endif$
    
