@@ -65,6 +65,10 @@ public class PatchRequest {
         public JsonElement getValue() {
             return value;
         }
+
+        /*default protection*/ void setPath(String path) {
+            this.path = path;
+        }
     }
 
     public PatchRequest(String id, Class<?> resClass) {
@@ -148,8 +152,11 @@ public class PatchRequest {
         operations.add(new PatchOperation("remove", path));
     }
 
-    /*default protection, unit testing */ List<PatchOperation> getOperations() {
+    /*default protection*/ List<PatchOperation> getOperations() {
         return operations;
     }
     
+    /*default protection*/ void addOperation(PatchOperation po) {
+        operations.add(po);
+    }
 }

@@ -1,5 +1,7 @@
 package com.keydap.sparrow;
 
+import static org.junit.Assert.assertEquals;
+
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
@@ -8,7 +10,6 @@ import java.util.Random;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -17,6 +18,8 @@ import com.google.gson.JsonObject;
 import com.keydap.sparrow.PatchRequest.PatchOperation;
 import com.keydap.sparrow.User.Address;
 import com.keydap.sparrow.User.Email;
+import com.keydap.sparrow.User.EnterpriseUser;
+import com.keydap.sparrow.User.Manager;
 import com.keydap.sparrow.User.Name;
 
 /**
@@ -82,15 +85,15 @@ public class PatchGeneratorTest {
         original.setName(name);
     }
     
-    private User cloneOriginal() {
+    private <T> T cloneObject(T obj) {
         // DO NOT use the SparrowClient's serialize, the output is not compatible to get an object back 
-        JsonElement je = gson.toJsonTree(original);
-        return gson.fromJson(je, User.class);
+        JsonElement je = gson.toJsonTree(obj);
+        return (T) gson.fromJson(je, obj.getClass());
     }
     
     @Test
     public void testAttrDiff() throws Exception {
-        User modified = cloneOriginal();
+        User modified = cloneObject(original);
         modified.setDisplayName("Westernghats Thar");
         Email e = modified.getEmails().get(1);
         e.setValue("new@mail.com");
@@ -107,7 +110,7 @@ public class PatchGeneratorTest {
     
     @Test
     public void testListDiff() throws Exception {
-        User modified = cloneOriginal();
+        User modified = cloneObject(original);
         
         // same list of emails - shouldn't have any difference
         PatchRequest pr = pg.create("", modified, original);
@@ -150,14 +153,14 @@ public class PatchGeneratorTest {
         
         PatchOperation po = ops.get(0);
         assertEquals("replace", po.getOp());
-        assertEquals(pg.buildPath("emails", e1), po.getPath());
+        assertEquals(pg.buildPathWithFilter("emails", e1), po.getPath());
         JsonObject jo = (JsonObject)gson.toJsonTree(e3);
         jo.remove("primary");// primary values are same during diff so it won't be included in patch
         assertEquals(jo, po.getValue());
         
         po = ops.get(1);
         assertEquals("replace", po.getOp());
-        assertEquals(pg.buildPath("emails", e2), po.getPath());
+        assertEquals(pg.buildPathWithFilter("emails", e2), po.getPath());
         jo = (JsonObject)gson.toJsonTree(e1);
         jo.remove("primary");// primary values are same during diff so it won't be included in patch
         assertEquals(jo, po.getValue());
@@ -190,21 +193,91 @@ public class PatchGeneratorTest {
         
         po = ops.get(0);
         assertEquals("replace", po.getOp());
-        assertEquals(pg.buildPath("emails", e1), po.getPath());
+        assertEquals(pg.buildPathWithFilter("emails", e1), po.getPath());
         jo = (JsonObject)gson.toJsonTree(e3);
         jo.remove("primary");// primary values are same during diff so it won't be included in patch
         assertEquals(jo, po.getValue());
         
         po = ops.get(1);
         assertEquals("replace", po.getOp());
-        assertEquals(pg.buildPath("emails", e2), po.getPath());
+        assertEquals(pg.buildPathWithFilter("emails", e2), po.getPath());
         jo = (JsonObject)gson.toJsonTree(e1);
         jo.remove("primary");// primary values are same during diff so it won't be included in patch
         assertEquals(jo, po.getValue());
+        
+        // delete
+        oEmails = new ArrayList<>();
+        oEmails.add(e1);
+        oEmails.add(e2);
+        oEmails.add(e3);
+        oEmails.add(e4);
+        original.setEmails(oEmails);
+        
+        mEmails = new ArrayList<>();
+        mEmails.add(e3);
+        mEmails.add(e1);
+        mEmails.add(null);
+        mEmails.add(null);
+        
+        modified.setEmails(mEmails);
+
+        pr = pg.create("", modified, original);
+        ops = pr.getOperations();
+        assertEquals(4, ops.size()); // 2 replace and 2 delete
+        
+        po = ops.get(2);
+        assertEquals("remove", po.getOp());
+        assertEquals(pg.buildPathWithFilter("emails", e3), po.getPath());
+        
+        po = ops.get(3);
+        assertEquals("remove", po.getOp());
+        assertEquals(pg.buildPathWithFilter("emails", e4), po.getPath());
+    }
+
+    @Test
+    public void testExtensionDiff() {
+        User modified = cloneObject(original);
+        
+        EnterpriseUser eu = new EnterpriseUser();
+        eu.setCostCenter("mountain valley");
+        eu.setDepartment("greenwood");
+        eu.setDivision("plains");
+        eu.setEmployeeNumber("1");
+        Manager manager = new Manager();
+        manager.setValue("ram");
+        eu.setManager(manager);
+        eu.setOrganization("herd");
+        
+        modified.setEnterpriseUser(eu);
+        
+        PatchRequest pr = pg.create("", modified, original);
+        List<PatchOperation> ops = pr.getOperations();
+        assertEquals(1, ops.size());
+        
+        PatchOperation po = ops.get(0);
+        assertEquals("add", po.getOp());
+        assertEquals("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:enterpriseUser", po.getPath());
+        JsonObject jo = (JsonObject)gson.toJsonTree(eu);
+        assertEquals(jo, po.getValue());
+        
+        original.setEnterpriseUser(cloneObject(eu));
+        eu.setCostCenter("new cost center");
+        eu.getManager().setValue("new ram");
+        pr = pg.create("", modified, original);
+        ops = pr.getOperations();
+        assertEquals(2, ops.size());
+        
+        po = ops.get(0);
+        assertEquals("replace", po.getOp());
+        assertEquals("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:enterpriseUser.costCenter", po.getPath());
+        
+        po = ops.get(1);
+        assertEquals("replace", po.getOp());
+        assertEquals("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:enterpriseUser.manager", po.getPath());
     }
     
-    private void dump(PatchRequest pr) {
-        System.out.println(gson.toJson(pr));
+    private void dump(Object obj) {
+        System.out.println(gson.toJson(obj));
     }
     
     private Email createEmail() {

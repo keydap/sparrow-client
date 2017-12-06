@@ -12,17 +12,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Stack;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.keydap.sparrow.PatchRequest.PatchOperation;
 
 /**
  *
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
+@SuppressWarnings({"unchecked", "rawtypes"})
 public class PatchGenerator {
     private static final String OPERATOR_AND = " AND ";
 
@@ -65,8 +66,7 @@ public class PatchGenerator {
 
         try {
             PatchRequest pr = new PatchRequest(id, modified.getClass());
-            Stack<String> path = new Stack<>();
-            _create(pr, modified, original);
+            _generate(pr, modified, original);
             return pr;
         }
         catch(Exception e) {
@@ -75,11 +75,18 @@ public class PatchGenerator {
     }
 
     private void updatePr(String op, PatchRequest pr, String pathStr, Object value) {
+
+        JsonElement jeVal = null;
+        if(value instanceof JsonElement) {
+            jeVal = (JsonElement) value;
+        }
         
         switch (op) {
         case "add":
-            JsonElement addEl = serializer.toJsonTree(value);
-            pr.add(pathStr, addEl);
+            if(jeVal == null) {
+                jeVal = serializer.toJsonTree(value);
+            }
+            pr.add(pathStr, jeVal);
             break;
 
         case "remove":
@@ -87,8 +94,10 @@ public class PatchGenerator {
             break;
             
         case "replace":
-            JsonElement delEl = serializer.toJsonTree(value);
-            pr.replace(pathStr, delEl);
+            if(jeVal == null) {
+                jeVal = serializer.toJsonTree(value);
+            }
+            pr.replace(pathStr, jeVal);
             break;
             
         default:
@@ -96,7 +105,7 @@ public class PatchGenerator {
         }
     }
     
-    private void _create(PatchRequest pr, Object modified, Object original) throws Exception {
+    private void _generate(PatchRequest pr, Object modified, Object original) throws Exception {
         Class cls = modified.getClass();
         for(Field f : getFields(cls)) {
             Object m = f.get(modified);
@@ -104,6 +113,11 @@ public class PatchGenerator {
             
             String path = f.getName();
             Class fType = f.getType();
+            
+            Extension ext = f.getAnnotation(Extension.class);
+            if(ext != null) {
+                path = ext.value() + ":" + path;
+            }
             
             //System.out.println("path -> " + path);
             if(m == o) {
@@ -118,13 +132,21 @@ public class PatchGenerator {
             else if(fType.isAssignableFrom(List.class)) {
                     diffCollections(pr, path, (List)m, (List)o);
             }
+            else if(ext != null) {
+                PatchRequest p2 = new PatchRequest(pr.getId(), fType);
+                _generate(p2, m, o);
+                for(PatchOperation po : p2.getOperations()) {
+                    po.setPath(path + "." + po.getPath());
+                    pr.addOperation(po);
+                }
+            }
             else {
-                diffObjects(pr, path, m, o);
+                diffNonNullObjects(pr, path, m, o);
             }
         }
     }
     
-    private void diffObjects(PatchRequest pr, String path, Object modified, Object original) throws Exception {
+    private void diffNonNullObjects(PatchRequest pr, String path, Object modified, Object original) throws Exception {
         Class cls = modified.getClass();
         boolean pt = isPrimitive(cls);
         if(pt) {
@@ -137,7 +159,7 @@ public class PatchGenerator {
         }
         
         // construct path like ims[type=\"home\"]
-        path = buildPath(path, original);
+        path = buildPathWithFilter(path, original);
         
         JsonObject obj = new JsonObject();
         for(Field f : getFields(cls)) {
@@ -180,7 +202,7 @@ public class PatchGenerator {
         return false;
     }
     
-    /*default protected*/ String buildPath(String fieldName, Object original) throws Exception {
+    /*default protected*/ String buildPathWithFilter(String fieldName, Object original) throws Exception {
         // for non-multivalued complextype(e.g Name) return the fieldName 
         ComplexType ct = original.getClass().getAnnotation(ComplexType.class);
         if(ct != null && !ct.multival()) {
@@ -215,6 +237,7 @@ public class PatchGenerator {
 
         return pathBuilder.toString();
     }
+    
     private void diffCollections(PatchRequest pr, String path, List m, List o) throws Exception {
         int mSize = m.size();
         int oSize = o.size();
@@ -233,10 +256,10 @@ public class PatchGenerator {
                 Object oObj = o.get(i);
                 // deal with deletion
                 if(mObj == null && oObj != null) {
-                    updatePr("remove", pr, buildPath(path, oObj), null);
+                    updatePr("remove", pr, buildPathWithFilter(path, oObj), null);
                 }
                 else {
-                    diffObjects(pr, path, mObj, oObj);
+                    diffNonNullObjects(pr, path, mObj, oObj);
                 }
             }
             else {
