@@ -9,6 +9,7 @@ package com.keydap.sparrow;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.gson.annotations.SerializedName;
@@ -158,5 +159,10 @@ public class PatchRequest {
     
     /*default protection*/ void addOperation(PatchOperation po) {
         operations.add(po);
+    }
+
+    @Override
+    public String toString() {
+        return new Gson().toJson(this);
     }
 }

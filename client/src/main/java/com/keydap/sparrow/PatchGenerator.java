@@ -29,7 +29,7 @@ public class PatchGenerator {
 
     private static final String OPERATOR_EQ = " EQ ";
 
-    private final Gson serializer = new Gson();
+    private static final Gson serializer = new Gson();
     
     private static final Map<Class, List<Field>> fieldMap = new HashMap<>();
     
@@ -60,12 +60,16 @@ public class PatchGenerator {
     }
     
     public PatchRequest create(String id, Object modified, Object original) {
+        return create(id, modified, original, null);
+    }
+    
+    public PatchRequest create(String id, Object modified, Object original, String etag) {
         if(modified.getClass() != original.getClass()) {
             throw new IllegalArgumentException("PatchRequest cannot be created for two different types ");
         }
 
         try {
-            PatchRequest pr = new PatchRequest(id, modified.getClass());
+            PatchRequest pr = new PatchRequest(id, modified.getClass(), etag);
             _generate(pr, modified, original);
             return pr;
         }
