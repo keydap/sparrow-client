@@ -348,7 +348,7 @@ public class SparrowClient {
      * @return
      */
     public <T> Response<T> getResource(String id, Class<T> resClas) {
-        return getResource(id, null, resClas);
+        return getResource(id, null, resClas, true, "*");
     }
     
     /**
