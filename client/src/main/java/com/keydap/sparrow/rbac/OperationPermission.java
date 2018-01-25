@@ -6,13 +6,17 @@
  */
 package com.keydap.sparrow.rbac;
 
+import java.io.Serializable;
+
+import org.apache.commons.codec.binary.StringUtils;
+
 import com.google.gson.Gson;
 
 /**
  *
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
-public class OperationPermission {
+public class OperationPermission implements Serializable {
     private String op;
     private String allowAttrs;
     private String denyAttrs;
@@ -20,6 +24,9 @@ public class OperationPermission {
 
     private static final Gson gson = new Gson();
 
+    public OperationPermission() {
+    }
+    
     private OperationPermission(String op, String filter) {
         this.op = op;
         this.filter = filter;
@@ -53,6 +60,22 @@ public class OperationPermission {
 
     public String getFilter() {
         return filter;
+    }
+
+    public void setOp(String op) {
+        this.op = op;
+    }
+
+    public void setAllowAttrs(String allowAttrs) {
+        this.allowAttrs = allowAttrs;
+    }
+
+    public void setDenyAttrs(String denyAttrs) {
+        this.denyAttrs = denyAttrs;
+    }
+
+    public void setFilter(String filter) {
+        this.filter = filter;
     }
 
     @Override

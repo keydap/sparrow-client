@@ -6,8 +6,9 @@
  */
 package com.keydap.sparrow.rbac;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.google.gson.Gson;
 
@@ -15,15 +16,15 @@ import com.google.gson.Gson;
  *
  * @author Kiran Ayyagari (kayyagari@keydap.com)
  */
-public class ResourcePermission {
+public class ResourcePermission implements Serializable {
     private String resName;
-    private Set<OperationPermission> opsArr;
+    private List<OperationPermission> opsArr;
 
     private static final Gson gson = new Gson();
     
     public ResourcePermission(String resName) {
         this.resName = resName;
-        this.opsArr = new HashSet<>();
+        this.opsArr = new ArrayList<>();
     }
 
     public void add(OperationPermission op) {
@@ -34,11 +35,27 @@ public class ResourcePermission {
         return resName;
     }
 
-    public Set<OperationPermission> getOpsArr() {
+    public List<OperationPermission> getOpsArr() {
         return opsArr;
     }
     
     public String toJson() {
         return gson.toJson(this);
+    }
+
+    public void setOpsArr(List<OperationPermission> opsArr) {
+        this.opsArr = opsArr;
+    }
+    
+    public OperationPermission getPermission(String opName) {
+        if(opsArr != null) {
+            for(OperationPermission op : opsArr) {
+                if(op.getOp().equalsIgnoreCase(opName)) {
+                    return op;
+                }
+            }
+        }
+        
+        return null;
     }
 }
