@@ -225,7 +225,7 @@ public class PatchGenerator {
             
             pathBuilder.append(name).append(OPERATOR_EQ);
             if(fType == String.class) {
-                String val = o.toString().replaceAll("\"", "\\\"");
+                String val = o.toString().replaceAll("\"", "\\\\\"");
                 pathBuilder.append("\"").append(val).append("\"");
             }
             else {

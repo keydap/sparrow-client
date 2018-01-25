@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -274,6 +275,25 @@ public class PatchGeneratorTest {
         po = ops.get(1);
         assertEquals("replace", po.getOp());
         assertEquals("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:enterpriseUser.manager", po.getPath());
+    }
+    
+    @Test
+    public void testJSONValueInPath() {
+        String jsonEmailVal = "[{\"op\":\"read\",\"allowAttrs\":\"name\",\"filter\":\"schemas pr\"}]";
+        Email e = new Email();
+        e.setValue(jsonEmailVal);
+        e.setType("home");
+        
+        User original = new User();
+        original.setEmails(Collections.singletonList(e));
+        User modified = cloneObject(original);
+        modified.getEmails().get(0).setPrimary(true);
+        
+        PatchRequest pr = pg.create("", modified, original);
+        String path = pr.getOperations().get(0).getPath();
+        
+        String expectedPath = "emails[value EQ \"[{\\\"op\\\":\\\"read\\\",\\\"allowAttrs\\\":\\\"name\\\",\\\"filter\\\":\\\"schemas pr\\\"}]\" AND type EQ \"home\" AND primary EQ false]";
+        assertEquals(expectedPath, path);
     }
     
     private void dump(Object obj) {
