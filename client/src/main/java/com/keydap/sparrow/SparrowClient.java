@@ -812,41 +812,9 @@ public class SparrowClient {
      * @param appReq application request
      * @return a response containing RegisteredApp if successful or an Error when not
      */
-    public Response<RegisteredApp> registerApp(RegisterAppRequest appReq) {
-        String template = baseOauthUrl + "/register";
-        
-        HttpPost register = new HttpPost(template);
-        String json = serializer.toJson(appReq);
-        StringEntity entity = new StringEntity(json, MIME_TYPE);
-        register.setEntity(entity);
-        authenticator.addHeaders(register);
-        
-        Response<RegisteredApp> result = new Response<RegisteredApp>();
-        try {
-            HttpResponse regResp = client.execute(register);
-            StatusLine sl = regResp.getStatusLine();
-            
-            result.setHttpCode(sl.getStatusCode());
-            json = EntityUtils.toString(regResp.getEntity());
-            if(sl.getStatusCode() == HttpStatus.SC_CREATED) {
-                RegisteredApp app = serializer.fromJson(json, RegisteredApp.class);
-                result.setResource(app);
-            } 
-            else if (json != null){
-                Error error = serializer.fromJson(json, Error.class);
-                result.setError(error);
-            }
-        }
-        catch(Exception e) {
-            LOG.warn("", e);
-            result.setHttpCode(-1);
-            Error err = new Error();
-            
-            err.setDetail(e.getMessage());
-            result.setError(err);
-        }
-        
-        return result;
+    public Response<RegisteredApp> registerApp(RegisteredApp appReq) {
+        Response<RegisteredApp> resp = addResource(appReq);
+        return resp;
     }
     
     private String getEndpoint(Class resClas) {
