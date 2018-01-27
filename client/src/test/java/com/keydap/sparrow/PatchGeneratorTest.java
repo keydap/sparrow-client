@@ -257,7 +257,7 @@ public class PatchGeneratorTest {
         
         PatchOperation po = ops.get(0);
         assertEquals("add", po.getOp());
-        assertEquals("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:enterpriseUser", po.getPath());
+        assertEquals("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User", po.getPath());
         JsonObject jo = (JsonObject)gson.toJsonTree(eu);
         assertEquals(jo, po.getValue());
         
@@ -270,11 +270,11 @@ public class PatchGeneratorTest {
         
         po = ops.get(0);
         assertEquals("replace", po.getOp());
-        assertEquals("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:enterpriseUser.costCenter", po.getPath());
+        assertEquals("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:costCenter", po.getPath());
         
         po = ops.get(1);
         assertEquals("replace", po.getOp());
-        assertEquals("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:enterpriseUser.manager", po.getPath());
+        assertEquals("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager", po.getPath());
     }
     
     @Test

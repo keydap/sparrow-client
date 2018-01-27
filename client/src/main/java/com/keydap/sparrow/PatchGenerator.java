@@ -120,7 +120,7 @@ public class PatchGenerator {
             
             Extension ext = f.getAnnotation(Extension.class);
             if(ext != null) {
-                path = ext.value() + ":" + path;
+                path = ext.value();
             }
             
             //System.out.println("path -> " + path);
@@ -140,7 +140,7 @@ public class PatchGenerator {
                 PatchRequest p2 = new PatchRequest(pr.getId(), fType);
                 _generate(p2, m, o);
                 for(PatchOperation po : p2.getOperations()) {
-                    po.setPath(path + "." + po.getPath());
+                    po.setPath(path  + ":" + po.getPath());
                     pr.addOperation(po);
                 }
             }
