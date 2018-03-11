@@ -540,7 +540,7 @@ public class SparrowClient {
      * @return
      */
     public Response<JsonObject> getSrvProvConf() {
-        HttpGet get = new HttpGet(baseApiUrl + "/ServiceProviderConfig");
+        HttpGet get = new HttpGet(baseApiUrl + "/ServiceProviderConfigs");
         return sendRawRequest(get, JsonObject.class);
     }
 
