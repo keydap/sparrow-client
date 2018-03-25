@@ -19,8 +19,7 @@ public class RegisteredApp {
     private String redirectUri;
     private boolean consentRequired;
     private boolean hasQueryInUri;
-    private List<Attribute> attributes;
-    private boolean enableSAML;
+    private List<Attribute> oauthAttributes;
 
     @ReadOnly
     private String[] schemas;
@@ -74,33 +73,26 @@ public class RegisteredApp {
         this.name = name;
     }
 
-    public void setEnableSAML(boolean enableSAML) {
-        this.enableSAML = enableSAML;
-    }
-
-    public boolean isEnableSAML() {
-        return enableSAML;
-    }
-
     public void add(Attribute attr) {
-        if (attributes == null) {
-            attributes = new ArrayList<>();
+        if (oauthAttributes == null) {
+            oauthAttributes = new ArrayList<>();
         }
 
-        attributes.add(attr);
+        oauthAttributes.add(attr);
     }
 
-    public void setAttributes(List<Attribute> attributes) {
-        this.attributes = attributes;
+    public void setOauthAttributes(List<Attribute> attributes) {
+        this.oauthAttributes = attributes;
     }
 
-    public List<Attribute> getAttributes() {
-        return attributes;
+    public List<Attribute> getOauthAttributes() {
+        return oauthAttributes;
     }
 
     @ComplexType(multival = true)
     public static class Attribute implements Serializable {
         private String name;
+        private String format;
         private String scimExpr;
         private String staticVal;
         private String staticMultiValDelim;
@@ -143,6 +135,14 @@ public class RegisteredApp {
 
         public String getStaticMultiValDelim() {
             return staticMultiValDelim;
+        }
+
+        public String getFormat() {
+            return format;
+        }
+
+        public void setFormat(String format) {
+            this.format = format;
         }
     }
 }
