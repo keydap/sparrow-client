@@ -19,7 +19,12 @@ public class RegisteredApp {
     private String redirectUri;
     private boolean consentRequired;
     private boolean hasQueryInUri;
-    private List<Attribute> oauthAttributes;
+    private List<OauthAttribute> oauthAttributes;
+    private String acsUrl;
+    private String sloUrl;
+    private String metaUrl;
+    private List<SamlAttribute> samlAttributes;
+    private int assertionValidity;
 
     @ReadOnly
     private String[] schemas;
@@ -73,34 +78,81 @@ public class RegisteredApp {
         this.name = name;
     }
 
-    public void add(Attribute attr) {
-        if (oauthAttributes == null) {
-            oauthAttributes = new ArrayList<>();
+    public void add(OauthAttribute attr) {
+        if (this.oauthAttributes == null) {
+            this.oauthAttributes = new ArrayList();
         }
 
-        oauthAttributes.add(attr);
+        this.oauthAttributes.add(attr);
     }
 
-    public void setOauthAttributes(List<Attribute> attributes) {
+    public void add(SamlAttribute attr) {
+        if (samlAttributes == null) {
+            samlAttributes = new ArrayList<>();
+        }
+
+        samlAttributes.add(attr);
+    }
+
+    public void setOauthAttributes(List<OauthAttribute> attributes) {
         this.oauthAttributes = attributes;
     }
 
-    public List<Attribute> getOauthAttributes() {
+    public List<OauthAttribute> getOauthAttributes() {
         return oauthAttributes;
     }
 
+    public String getAcsUrl() {
+        return acsUrl;
+    }
+
+    public void setAcsUrl(String acsUrl) {
+        this.acsUrl = acsUrl;
+    }
+
+    public String getSloUrl() {
+        return sloUrl;
+    }
+
+    public void setSloUrl(String sloUrl) {
+        this.sloUrl = sloUrl;
+    }
+
+    public String getMetaUrl() {
+        return metaUrl;
+    }
+
+    public void setMetaUrl(String metaUrl) {
+        this.metaUrl = metaUrl;
+    }
+
+    public List<SamlAttribute> getSamlAttributes() {
+        return samlAttributes;
+    }
+
+    public void setSamlAttributes(List<SamlAttribute> samlAttributes) {
+        this.samlAttributes = samlAttributes;
+    }
+
+    public int getAssertionValidity() {
+        return assertionValidity;
+    }
+
+    public void setAssertionValidity(int assertionValidity) {
+        this.assertionValidity = assertionValidity;
+    }
+
     @ComplexType(multival = true)
-    public static class Attribute implements Serializable {
+    public static class OauthAttribute implements Serializable {
         private String name;
-        private String format;
         private String scimExpr;
         private String staticVal;
         private String staticMultiValDelim;
 
-        public Attribute() {
+        public OauthAttribute() {
         }
-
-        public Attribute(String name, String scimExpr) {
+        
+        public OauthAttribute(String name, String scimExpr) {
             this.name = name;
             this.scimExpr = scimExpr;
         }
@@ -136,13 +188,25 @@ public class RegisteredApp {
         public String getStaticMultiValDelim() {
             return staticMultiValDelim;
         }
+    }
 
-        public String getFormat() {
-            return format;
+    @ComplexType(multival = true)
+    public static class SamlAttribute extends OauthAttribute implements Serializable {
+        private String format = "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"; // default format
+
+        public SamlAttribute() {
+        }
+
+        public SamlAttribute(String name, String scimExpr) {
+            super(name, scimExpr);
         }
 
         public void setFormat(String format) {
             this.format = format;
+        }
+
+        public String getFormat() {
+            return format;
         }
     }
 }
