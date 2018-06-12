@@ -279,14 +279,14 @@ public class SparrowClient {
      * 
      * @param id identifier of the resource to be replaced
      * @param rs the new resource with which old one will be replaced
-     * @param ifNoneMatch the value to be set for If-None-Match header
+     * @param ifNoneMatch the value to be set for If-Match header
      * @return
      */
     public <T> Response<T> replaceResource(String id, T rs, String ifNoneMatch) {
         Class resClas = rs.getClass();
         String endpoint = getEndpoint(resClas);
         HttpPut put = new HttpPut(baseApiUrl + endpoint + "/" + id);
-        setIfNoneMatch(put, ifNoneMatch);
+        setIfMatch(put, ifNoneMatch);
         setBody(put, rs);
         return sendRawRequest(put, resClas);
     }
@@ -315,7 +315,7 @@ public class SparrowClient {
         }
         
         HttpPatch patch = new HttpPatch(url);
-        setIfNoneMatch(patch, pr.getIfNoneMatch());
+        setIfMatch(patch, pr.getIfMatch());
         setBody(patch, pr);
         return sendRawRequest(patch, resClas);
     }
@@ -368,7 +368,7 @@ public class SparrowClient {
     
     /**
      * Same as {@link #getResource(String, String, Class, boolean, String...)} 
-     * but without the If-None-Match header value
+     * but without the If-Match header value
      * 
      * @see #getResource(String, String, Class, boolean, String...)
      */
@@ -417,7 +417,7 @@ public class SparrowClient {
         }
         
         HttpGet get = new HttpGet(sb.toString());
-        setIfNoneMatch(get, ifNoneMatch);
+        setIfMatch(get, ifNoneMatch);
         return sendRawRequest(get, resClas);
     }
 
@@ -826,9 +826,9 @@ public class SparrowClient {
         return ep;
     }
     
-    private void setIfNoneMatch(HttpRequestBase req, String ifNoneMatch) {
-        if(ifNoneMatch != null) {
-            req.setHeader("If-None-Match", ifNoneMatch);
+    private void setIfMatch(HttpRequestBase req, String ifMatch) {
+        if(ifMatch != null) {
+            req.setHeader("If-Match", ifMatch);
         }
     }
     
@@ -857,5 +857,46 @@ public class SparrowClient {
         }
         
         return t;
+    }
+
+    public void normalizeKeys(Response resp) {
+        String body = resp.getHttpBody();
+        if(body == null) {
+            return;
+        }
+
+        JsonObject json = (JsonObject) parser.parse(body);
+        json = keysToLower(json);
+        resp.setHttpBody(json.toString());
+    }
+
+    private JsonObject keysToLower(JsonObject obj) {
+        JsonObject tmp = new JsonObject();
+        for(String key : obj.keySet()) {
+            JsonElement je = obj.get(key);
+            if(key.contains(":") ) {
+                JsonObject ext = keysToLower((JsonObject)je);
+                tmp.add(key, ext);
+            }
+            else {
+                if(je.isJsonObject()) {
+                    je = keysToLower((JsonObject)je);
+                }
+                else if(je.isJsonArray()) {
+                    JsonArray arr = je.getAsJsonArray();
+                    for(int i=0; i<arr.size(); i++) {
+                        JsonElement item = arr.get(i);
+                        if(item.isJsonObject()) {
+                            item = keysToLower((JsonObject)item);
+                            arr.set(i, item);
+                        }
+                    }
+                }
+
+                tmp.add(key.toLowerCase(), je);
+            }
+        }
+
+        return tmp;
     }
 }

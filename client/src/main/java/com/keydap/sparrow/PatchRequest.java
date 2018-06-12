@@ -36,7 +36,7 @@ public class PatchRequest {
     private transient String attributes;
 
     /** the value of the If-None-Match header */
-    private transient String ifNoneMatch;
+    private transient String ifMatch;
 
     private transient JsonParser parser = new JsonParser();
     
@@ -76,10 +76,10 @@ public class PatchRequest {
         this(id, resClass, null);
     }
     
-    public PatchRequest(String id, Class<?> resClass, String ifNoneMatch) {
+    public PatchRequest(String id, Class<?> resClass, String ifMatch) {
         this.id = id;
         this.resClass = resClass;
-        this.ifNoneMatch = ifNoneMatch;
+        this.ifMatch = ifMatch;
     }
     
     public String getId() {
@@ -94,12 +94,12 @@ public class PatchRequest {
         return attributes;
     }
 
-    public String getIfNoneMatch() {
-        return ifNoneMatch;
+    public String getIfMatch() {
+        return ifMatch;
     }
 
-    public void setIfNoneMatch(String ifNoneMatch) {
-        this.ifNoneMatch = ifNoneMatch;
+    public void setIfMatch(String ifMatch) {
+        this.ifMatch = ifMatch;
     }
 
     public void setAttributes(String attributes) {
