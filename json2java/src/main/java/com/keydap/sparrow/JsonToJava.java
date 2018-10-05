@@ -7,11 +7,20 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.net.URL;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.X509TrustManager;
 
 import org.antlr.stringtemplate.StringTemplate;
 import org.antlr.stringtemplate.StringTemplateGroup;
@@ -38,6 +47,9 @@ public class JsonToJava extends AbstractMojo {
 
     @Parameter
     private boolean skipGeneration;
+
+    @Parameter
+    private boolean verifyCert;
 
     @Parameter(defaultValue = "${project}")
     private MavenProject project;
@@ -114,6 +126,48 @@ public class JsonToJava extends AbstractMojo {
     public void generateAndSave(File srcDir) throws MojoExecutionException {
         Gson gson = new Gson();
 
+        HostnameVerifier defaultVerifier = HttpsURLConnection.getDefaultHostnameVerifier();
+        SSLSocketFactory defaultSsf = HttpsURLConnection.getDefaultSSLSocketFactory();
+
+        if(baseUrl.trim().toLowerCase().startsWith("https://")) {
+            if(!verifyCert) {
+                HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
+
+                    @Override
+                    public boolean verify(String hostname, SSLSession session) {
+                        return true;
+                    }
+                });
+
+                try {
+                    SSLContext ctx = SSLContext.getInstance("TLS");
+                    X509TrustManager tm = new X509TrustManager() {
+                        @Override
+                        public X509Certificate[] getAcceptedIssuers() {
+                            return new X509Certificate[0];
+                        }
+
+                        @Override
+                        public void checkServerTrusted(X509Certificate[] chain, String authtype)
+                                throws CertificateException {
+                        }
+
+                        @Override
+                        public void checkClientTrusted(X509Certificate[] chain, String authtype)
+                                throws CertificateException {
+                        }
+                    };
+
+                    ctx.init(null, new X509TrustManager[]{tm}, null);
+
+                    HttpsURLConnection.setDefaultSSLSocketFactory(ctx.getSocketFactory());
+                }
+                catch(Exception e) {
+                    throw new MojoExecutionException("", e);
+                }
+            }
+        }
+
         getLog().info("Fetching ResourceTypes...");
         String rtJson = fetch(baseUrl + "/ResourceTypes");
 
@@ -137,6 +191,15 @@ public class JsonToJava extends AbstractMojo {
 
         for (ResourceType rt : resTypes) {
             _generateAndSave(rt, scMap, srcDir);
+        }
+
+        // reset to be nice to other plugins
+        if(defaultVerifier != null) {
+            HttpsURLConnection.setDefaultHostnameVerifier(defaultVerifier);
+        }
+
+        if(defaultSsf != null) {
+            HttpsURLConnection.setDefaultSSLSocketFactory(defaultSsf);
         }
     }
 
@@ -416,9 +479,10 @@ public class JsonToJava extends AbstractMojo {
     
     public static void main(String[] args) throws Exception {
         JsonToJava jj = new JsonToJava();
-        jj.baseUrl = "http://localhost:9090/v2";
+        jj.baseUrl = "https://localhost:7090/v2";
         jj.generatePackage = "com";
-        jj.targetDirectory = new File("/Users/dbugger/projects/sparrow-client/json2java/target");
+        jj.verifyCert = false;
+        jj.targetDirectory = new File("/tmp");
         jj.execute();
     }
 }
