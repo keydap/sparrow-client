@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.X509TrustManager;
 
 import org.apache.http.Consts;
 import org.apache.http.HttpEntity;
@@ -38,6 +39,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -178,6 +180,19 @@ public class SparrowClient {
         builder = HttpClientBuilder.create().useSystemProperties();
         
         if(isHttps) {
+            if(sslCtx == null) {
+                LOG.warn("********************** No SSLContext instance is provided, creating a cstom SSLContext that trusts all certificates **********************");
+                try {
+                    sslCtx = SSLContext.getInstance("TLS");
+                    sslCtx.init(null, new X509TrustManager[]{new AllowAllTrustManager()}, null);
+                }
+                catch(Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                builder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
+            }
+
             builder.setSSLContext(sslCtx);
         }
         
