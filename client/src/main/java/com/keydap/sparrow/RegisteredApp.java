@@ -14,16 +14,19 @@ public class RegisteredApp {
     @ReadOnly
     private String id;
     private String name;
+    private String spIssuer;
+    private String idpIssuer;
     private String descritpion;
     private String secret;
     private String redirectUri;
     private boolean consentRequired;
     private boolean hasQueryInUri;
     private List<OauthAttribute> oauthAttributes;
-    private String acsUrl;
+    private String homeUrl;
     private String sloUrl;
     private String metaUrl;
     private List<SamlAttribute> samlAttributes;
+    private List<String> groupIds;
     private int assertionValidity;
 
     @ReadOnly
@@ -102,14 +105,6 @@ public class RegisteredApp {
         return oauthAttributes;
     }
 
-    public String getAcsUrl() {
-        return acsUrl;
-    }
-
-    public void setAcsUrl(String acsUrl) {
-        this.acsUrl = acsUrl;
-    }
-
     public String getSloUrl() {
         return sloUrl;
     }
@@ -142,9 +137,41 @@ public class RegisteredApp {
         this.assertionValidity = assertionValidity;
     }
 
+    public String getSpIssuer() {
+        return spIssuer;
+    }
+
+    public void setSpIssuer(String spIssuer) {
+        this.spIssuer = spIssuer;
+    }
+
+    public String getIdpIssuer() {
+        return idpIssuer;
+    }
+
+    public void setIdpIssuer(String idpIssuer) {
+        this.idpIssuer = idpIssuer;
+    }
+
+    public String getHomeUrl() {
+        return homeUrl;
+    }
+
+    public void setHomeUrl(String homeUrl) {
+        this.homeUrl = homeUrl;
+    }
+
+    public List<String> getGroupIds() {
+        return groupIds;
+    }
+
+    public void setGroupIds(List<String> groupIds) {
+        this.groupIds = groupIds;
+    }
+
     @ComplexType(multival = true)
     public static class OauthAttribute implements Serializable {
-        private String name;
+        private String value; // name of the attribute
         private String scimExpr;
         private String staticVal;
         private String staticMultiValDelim;
@@ -153,16 +180,16 @@ public class RegisteredApp {
         }
         
         public OauthAttribute(String name, String scimExpr) {
-            this.name = name;
+            this.value = name;
             this.scimExpr = scimExpr;
         }
 
         public void setName(String name) {
-            this.name = name;
+            this.value = name;
         }
 
         public String getName() {
-            return name;
+            return value;
         }
 
         public void setScimExpr(String scimExpr) {

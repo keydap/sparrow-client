@@ -70,8 +70,7 @@ public class SparrowAuthenticator implements Authenticator {
         StatusLine sl = resp.getStatusLine();
         
         if((sl.getStatusCode() != 200) && (sl.getStatusCode() != 201)) {
-            String msg = "Authentication failed [code: %d, reason: %s]";
-            msg = String.format(msg,  sl.getStatusCode(), sl.getReasonPhrase());
+            String msg = EntityUtils.toString(resp.getEntity());
             LOG.warn(msg);
             throw new IllegalStateException(msg);
         }
